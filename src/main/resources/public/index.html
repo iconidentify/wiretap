@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WireTap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      :root { color-scheme: dark; --accent:#22d3ee; --accent2:#6366f1; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; }
+      html, body { height: 100%; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; margin: 0; padding: 0; background: radial-gradient(1200px 800px at 20% -20%, color-mix(in oklab, Canvas 90%, var(--accent) 8%), transparent), radial-gradient(1000px 700px at 120% 10%, color-mix(in oklab, Canvas 90%, var(--accent2) 6%), transparent), Canvas; }
+      header { padding: 18px 24px; border-bottom: 1px solid color-mix(in oklab, Canvas 80%, CanvasText 10%); display: flex; align-items: center; justify-content: space-between; background: linear-gradient(90deg, color-mix(in oklab, Canvas 94%, var(--accent) 6%), color-mix(in oklab, Canvas 94%, var(--accent2) 5%)); backdrop-filter: saturate(140%); }
+      .brand { font-weight: 600; letter-spacing: 0.2px; }
+      main { max-width: 1200px; margin: 0 auto; padding: 24px; min-height: calc(100vh - 80px); display: flex; flex-direction: column; }
+      .dropzone { border: 2px dashed color-mix(in oklab, CanvasText 30%, transparent); border-radius: 12px; padding: 32px; text-align: center; transition: background-color .2s, border-color .2s; }
+      .dropzone.dragover { background: color-mix(in oklab, Canvas 92%, CanvasText 3%); border-color: color-mix(in oklab, CanvasText 60%, transparent); }
+      .dz-title { font-size: 18px; margin-bottom: 8px; }
+      .dz-sub { opacity: .8; font-size: 14px; }
+      .controls { margin-top: 16px; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+      .btn.primary { background: var(--accent); color: Canvas; }
+      .btn.danger { background: var(--err); color: white; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .proxy-controls { display: flex; gap: 8px; align-items: center; }
+      .btn { appearance: none; padding: 10px 14px; border-radius: 10px; border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 95%, CanvasText 5%); color: inherit; cursor: pointer; }
+      .output { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; }
+      .card { border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius: 12px; overflow: hidden; height: 100%; display: flex; flex-direction: column; }
+      .card header { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid color-mix(in oklab, CanvasText 15%, transparent); }
+      .card pre { margin: 0; padding: 12px 16px; max-height: 480px; overflow: auto; font-size: 12.5px; line-height: 1.5; background: color-mix(in oklab, Canvas 97%, CanvasText 3%); }
+      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; }
+      /* simple JSON syntax highlighting */
+      .hl-key { color: color-mix(in oklab, CanvasText 100%, #3b82f6 30%); }
+      .hl-string { color: color-mix(in oklab, CanvasText 100%, #16a34a 20%); }
+      .hl-number { color: color-mix(in oklab, CanvasText 100%, #ef4444 30%); }
+      .hl-boolean { color: color-mix(in oklab, CanvasText 100%, #a855f7 20%); }
+      .hl-null { color: color-mix(in oklab, CanvasText 100%, #f59e0b 20%); font-style: italic; }
+      .muted { opacity: .7; }
+      .status { font-size: 12px; }
+      /* timeline */
+      .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .toolbar input[type="search"] { inline-size: 260px; max-width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 95%, CanvasText 5%); color: inherit; }
+      .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+      .frame { position: relative; border: 1px solid color-mix(in oklab, CanvasText 18%, transparent); background: color-mix(in oklab, Canvas 98%, CanvasText 2%); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 0 color-mix(in oklab, CanvasText 10%, transparent); }
+      .frame.c2s { border-inline-start: 4px solid #3b82f6; }
+      .frame.s2c { border-inline-start: 4px solid #10b981; }
+      .frame.err { outline: 2px solid color-mix(in oklab, #ef4444 60%, Canvas 20%); }
+      .group-header { position: sticky; top: 0; z-index: 5; background: color-mix(in oklab, Canvas 96%, CanvasText 4%); border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); padding: 6px 10px; border-radius: 8px; font-weight: 600; }
+      .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; margin-bottom: 6px; }
+      .pill { padding: 2px 6px; border-radius: 999px; border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 95%, CanvasText 5%); }
+      .dir-c2s { color: #0ea5e9; border-color: #38bdf8; background: color-mix(in oklab, Canvas 96%, #0891b2 7%); }
+      .dir-s2c { color: #84cc16; border-color: #a3e635; background: color-mix(in oklab, Canvas 96%, #65a30d 7%); }
+      .pill { backdrop-filter: saturate(140%); }
+      .prot { color: #0f766e; border-color: #5eead4; background: color-mix(in oklab, Canvas 96%, #2dd4bf 6%); }
+      .popover { position: absolute; z-index: 20; inset-inline-end: 12px; inset-block-start: 12px; max-inline-size: 520px; background: Canvas; color: CanvasText; border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.2); padding: 10px 12px; display:none; }
+      .popover pre { max-height: 300px; overflow:auto; font-size: 12px; margin:0; }
+      .actions { margin-inline-start: auto; display: inline-flex; gap: 6px; }
+      .iconbtn { appearance: none; border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 95%, CanvasText 5%); color: inherit; border-radius: 8px; padding: 6px 8px; cursor: pointer; font-size: 12px; }
+      .hex { font-family: ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; opacity: .9; }
+      .chips { display:flex; gap:8px; padding:8px 16px; align-items:center; border-bottom: 1px solid color-mix(in oklab, CanvasText 15%, transparent); background: color-mix(in oklab, Canvas 96%, CanvasText 4%); }
+      .chip { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 94%, CanvasText 6%); font-size:12px; }
+      .chip.ok { border-color: color-mix(in oklab, var(--ok) 60%, Canvas 30%); background: color-mix(in oklab, Canvas 96%, var(--ok) 8%); }
+      .chip.live { border-color: color-mix(in oklab, var(--accent) 60%, Canvas 30%); background: color-mix(in oklab, Canvas 96%, var(--accent) 8%); }
+      .dot { inline-size:8px; block-size:8px; border-radius:999px; background: currentColor; box-shadow: 0 0 0 2px color-mix(in oklab, Canvas, transparent); }
+      .timer { opacity:.8; }
+      #toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; }
+      .toast { padding:10px 12px; border-radius: 10px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); background: color-mix(in oklab, Canvas 94%, CanvasText 6%); box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 13px; }
+      .toast.ok { border-color: color-mix(in oklab, var(--ok) 60%, Canvas 30%); }
+      .toast.err { border-color: color-mix(in oklab, var(--err) 60%, Canvas 30%); }
+      .tab-group { display: flex; gap: 0; border-bottom: 1px solid color-mix(in oklab, CanvasText 15%, transparent); margin-bottom: 16px; }
+      .tab { padding: 10px 16px; border: 1px solid transparent; border-bottom: none; cursor: pointer; }
+      .tab.active { border-color: color-mix(in oklab, CanvasText 20%, transparent); border-bottom: 2px solid var(--accent); background: color-mix(in oklab, Canvas 95%, CanvasText 5%); }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">WireTap</div>
+    </header>
+    <main>
+      <div class="chips">
+        <div id="chip-proxy" class="chip"><span class="dot"></span><span>Proxy: stopped</span><span class="timer"></span></div>
+        <div id="chip-live" class="chip"><span class="dot"></span><span>Live: disconnected</span></div>
+      </div>
+      <div class="tab-group">
+        <div class="tab active" data-tab="proxy">Live Proxy</div>
+        <div class="tab" data-tab="pcap">PCAP Analyzer</div>
+        <div class="tab" data-tab="library">Capture Library</div>
+      </div>
+      <div id="tab-proxy" class="tab-panel active">
+        <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
+          <h3>Proxy Configuration</h3>
+          <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+            Listen: <input id="px-listen" type="number" value="5190" style="width:80px">
+            Dest host: <input id="px-host" type="text" value="127.0.0.1" style="width:140px">
+            Port: <input id="px-port" type="number" value="5190" style="width:80px">
+          </div>
+          <div class="proxy-controls" style="margin-top:12px;">
+            <button id="px-start" class="btn primary" style="min-width: 100px;">▶ Start Proxy</button>
+            <button id="px-stop" class="btn danger" style="min-width: 100px;" disabled>⏹ Stop Proxy</button>
+            <button id="live" class="btn" style="min-width: 110px;" disabled>📡 Connect Live</button>
+            <span id="proxy-status" style="font-size: 12px; opacity: 0.7; margin-left: 8px;">Proxy stopped</span>
+          </div>
+        </div>
+      </div>
+      <div id="tab-pcap" class="tab-panel">
+        <div id="dz" class="dropzone">
+          <div class="dz-title">Drop a PCAP file here</div>
+          <div class="dz-sub">or click to choose</div>
+          <input id="file" type="file" accept=".pcap,application/vnd.tcpdump.pcap" hidden />
+        </div>
+        <div id="session-indicator" class="session-indicator" style="display:none; margin-top:12px; padding:8px 12px; background:color-mix(in oklab, CanvasText 5%, transparent); border-radius:8px; font-size:13px; color:color-mix(in oklab, CanvasText 80%, transparent);">
+          <span style="font-weight:500;">📚 Loaded Session:</span> <span id="session-name"></span>
+        </div>
+        <div id="status" class="status muted" style="margin-top:8px">Loading…</div>
+      </div>
+      <div id="tab-library" class="tab-panel">
+        <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
+          <h3>Capture Library</h3>
+          <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+            <button id="refresh-library" class="btn">Refresh Library</button>
+            <button id="save-current" class="btn">Save Current Session</button>
+          </div>
+          <div id="library-sessions" style="margin-top:16px; max-height:400px; overflow-y:auto;"></div>
+        </div>
+      </div>
+      <div class="controls toolbar">
+        <button id="pause" class="btn">Pause</button>
+        <button id="clear" class="btn">Clear</button>
+        <button id="save-session" class="btn">Save to Library</button>
+      </div>
+      <section class="output">
+        <div class="card">
+          <header>
+            <div>Latest Frames (Newest First)</div>
+            <div class="actions">
+              <button id="exportJsonl" class="iconbtn">Export JSONL</button>
+                            <button id="tokenInventory" class="iconbtn" title="Token Inventory">📊</button>
+            </div>
+          </header>
+          <div id="timeline-pcap" class="timeline" style="display:none"></div>
+          <div id="timeline-proxy" class="timeline"></div>
+        </div>
+      </section>
+      
+      <!-- Token Inventory Popup -->
+      <div id="tokenInventoryPopup" class="token-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:Canvas; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.3); z-index:1000; max-width:600px; max-height:80vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="margin:0; font-size:18px;">Token Inventory</h3>
+          <button id="closeTokenPopup" class="iconbtn" style="font-size:16px;">✕</button>
+        </div>
+        <div id="tokenInventoryContent"></div>
+      </div>
+      
+      <!-- Backdrop -->
+      <div id="tokenInventoryBackdrop" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:999;"></div>
+          <div id="timeline-pcap" class="timeline"></div>
+          <div id="timeline-proxy" class="timeline" style="display:none"></div>
+        </div>
+      </section>
+    </main>
+    <div id="toasts"></div>
+    <script>
+      const dz = document.getElementById('dz');
+      const fileInput = document.getElementById('file');
+      // virtual download link created on demand
+      let downloadLink = null;
+      const timelinePcap = document.getElementById('timeline-pcap');
+      const timelineProxy = document.getElementById('timeline-proxy');
+      let tokenIndex = null;
+      async function loadTokenIndex() {
+        try {
+          const res = await fetch('/api/tokens');
+          if (res.ok) tokenIndex = await res.json();
+        } catch (_) { /* ignore */ }
+      }
+      loadTokenIndex();
+
+      const statusEl = document.getElementById('status');
+      const pauseBtn = document.getElementById('pause');
+      const clearBtn = document.getElementById('clear');
+
+      const exportJsonlBtn = document.getElementById('exportJsonl');
+      const tokenInventoryBtn = document.getElementById('tokenInventory');
+      const tokenInventoryPopup = document.getElementById('tokenInventoryPopup');
+      const tokenInventoryBackdrop = document.getElementById('tokenInventoryBackdrop');
+      const closeTokenPopup = document.getElementById('closeTokenPopup');
+      const tokenInventoryContent = document.getElementById('tokenInventoryContent');
+      const liveBtn = document.getElementById('live');
+      const pxStart = document.getElementById('px-start');
+      const pxStop = document.getElementById('px-stop');
+      const pxListen = document.getElementById('px-listen');
+      const pxHost = document.getElementById('px-host');
+      const pxPort = document.getElementById('px-port');
+      const proxyStatus = document.getElementById('proxy-status');
+      const chipProxy = document.getElementById('chip-proxy');
+      const chipLive = document.getElementById('chip-live');
+      const refreshLibraryBtn = document.getElementById('refresh-library');
+      const saveCurrentBtn = document.getElementById('save-current');
+      const librarySessionsEl = document.getElementById('library-sessions');
+      
+      // Session management
+      let currentSessionId = null;
+      let currentSessionName = null;
+
+      
+      // Proxy configuration persistence
+      async function loadProxyConfig() {
+        try {
+          const res = await fetch('/api/proxy-config');
+          if (res.ok) {
+            const config = await res.json();
+            pxListen.value = config.listen || 5190;
+            pxHost.value = config.host || '127.0.0.1';
+            pxPort.value = config.port || 5190;
+          }
+        } catch (e) {
+          console.error('Failed to load proxy configuration:', e);
+        }
+
+        // Load saved frames
+        const framesLoaded = loadFramesFromStorage();
+        if (framesLoaded) {
+          const totalFrames = framesPcap.length + framesProxy.length;
+          console.log(`Restored ${totalFrames} frames from previous session`);
+          statusEl.textContent = `Restored ${totalFrames} frames from previous session`;
+          rerenderAll();
+          setTimeout(() => {
+            statusEl.textContent = 'Ready';
+          }, 3000);
+        }
+
+        // Check if proxy was running and try to recover
+        const wasProxyRunning = localStorage.getItem('proxyRunning') === 'true';
+        if (wasProxyRunning) {
+          console.log('Checking if proxy is still running...');
+          // Check if proxy is actually still running on the backend
+          fetch('/api/proxy/status')
+            .then(res => res.json())
+            .then(status => {
+              if (status.running) {
+                console.log('Proxy is still running, attempting to reconnect live stream...');
+                setProxyChip(true, 'Proxy: running (recovered)');
+                // Give the server a moment to be ready
+                setTimeout(() => {
+                  startLive();
+                }, 500);
+              } else {
+                console.log('Proxy is no longer running, clearing saved state');
+                localStorage.setItem('proxyRunning', 'false');
+              }
+            })
+            .catch(err => {
+              console.warn('Failed to check proxy status:', err);
+              localStorage.setItem('proxyRunning', 'false');
+            });
+        }
+      }
+      
+      async function saveProxyConfig() {
+        try {
+          const config = {
+            listen: parseInt(pxListen.value) || 5190,
+            host: pxHost.value || '127.0.0.1',
+            port: parseInt(pxPort.value) || 5190
+          };
+          
+          const res = await fetch('/api/proxy-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+          });
+          
+          if (!res.ok) {
+            console.error('Failed to save proxy configuration');
+          }
+        } catch (e) {
+          console.error('Failed to save proxy configuration:', e);
+        }
+      }
+      
+      let proxyStartAt = null; let proxyTimer = null;
+      function setProxyChip(running, text) {
+        proxyRunning = running;
+        chipProxy.className = 'chip' + (running ? ' ok' : '');
+        chipProxy.querySelector('.dot').style.color = running ? 'var(--ok)' : 'currentColor';
+        chipProxy.querySelector('span:nth-child(2)').textContent = text || (running ? 'Proxy: running' : 'Proxy: stopped');
+        const t = chipProxy.querySelector('.timer');
+        if (running) { if (!proxyStartAt) proxyStartAt = Date.now(); if (!proxyTimer) proxyTimer = setInterval(()=>{ const d = Date.now()-proxyStartAt; const s=Math.floor(d/1000)%60, m=Math.floor(d/60000)%60, h=Math.floor(d/3600000); t.textContent = ` — ${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }, 1000); }
+        else { if (proxyTimer){ clearInterval(proxyTimer); proxyTimer=null; } t.textContent=''; proxyStartAt=null; }
+
+        // Update button states
+        updateProxyButtons();
+      }
+
+      function updateProxyButtons() {
+        if (proxyRunning) {
+          pxStart.disabled = true;
+          pxStart.textContent = '▶ Proxy Running';
+          pxStop.disabled = false;
+          pxStop.textContent = '⏹ Stop Proxy';
+          liveBtn.disabled = false;
+          liveBtn.textContent = '📡 Connect Live';
+          proxyStatus.textContent = 'Proxy running';
+          proxyStatus.style.color = 'var(--ok)';
+        } else {
+          pxStart.disabled = false;
+          pxStart.textContent = '▶ Start Proxy';
+          pxStop.disabled = true;
+          pxStop.textContent = '⏹ Stop Proxy';
+          liveBtn.disabled = true;
+          liveBtn.textContent = '📡 Connect Live';
+          proxyStatus.textContent = 'Proxy stopped';
+          proxyStatus.style.color = 'currentColor';
+        }
+      }
+      function setLiveChip(on){ chipLive.className = 'chip' + (on ? ' live' : ''); chipLive.querySelector('.dot').style.color = on ? 'var(--accent)' : 'currentColor'; chipLive.querySelector('span:nth-child(2)').textContent = on ? 'Live: active' : 'Live: inactive'; }
+      function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
+      
+      // Session management functions
+      async function createSession(name, source, isLive) {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, source, isLive })
+        });
+        if (res.ok) {
+          const session = await res.json();
+          currentSessionId = session.id;
+          currentSessionName = session.name;
+          return session;
+        }
+        return null;
+      }
+      
+      async function saveCurrentSession() {
+        // Always prompt for a name when saving
+        const name = prompt('Enter session name:');
+        if (!name) return;
+        
+        // Create a new session
+        const session = await createSession(name, isProxyActive() ? 'live' : 'pcap', isProxyActive());
+        if (!session) {
+          toast('Failed to create session', 'err');
+          return;
+        }
+        
+        currentSessionId = session.id;
+        currentSessionName = session.name;
+        
+        // Save all current frames (not just filtered ones)
+        const frames = activeFrames().map(f => f.obj);
+        
+        const res = await fetch(`/api/sessions/${currentSessionId}/save`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(frames)
+        });
+        if (res.ok) {
+          toast('Session saved successfully', 'ok');
+          loadLibrarySessions(); // Refresh the library
+        } else {
+          toast('Failed to save session', 'err');
+        }
+      }
+      
+
+      
+      async function loadLibrarySessions() {
+        try {
+          const res = await fetch('/api/sessions');
+          if (res.ok) {
+            const sessions = await res.json();
+            renderLibrarySessions(sessions);
+          }
+        } catch (e) {
+          console.error('Failed to load library sessions:', e);
+        }
+      }
+      
+      function renderLibrarySessions(sessions) {
+        if (sessions.length === 0) {
+          librarySessionsEl.innerHTML = '<div style="text-align:center; padding:20px; opacity:0.7;">No saved sessions</div>';
+          return;
+        }
+        
+        librarySessionsEl.innerHTML = sessions.map(session => `
+          <div style="border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:8px; padding:12px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-weight:600;">${session.name}</div>
+                <div style="font-size:12px; opacity:0.7;">
+                  ${session.source} • ${session.frameCount} frames • ${new Date(session.createdAt).toLocaleString()}
+                </div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn" onclick="loadSession('${session.id}')" style="font-size:12px;">Load</button>
+                <button class="btn" onclick="deleteSession('${session.id}')" style="font-size:12px;">Delete</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      async function loadSession(sessionId) {
+        try {
+          const res = await fetch(`/api/sessions/${sessionId}`);
+          if (res.ok) {
+            const session = await res.json();
+            
+            // Always load saved sessions into the pcap tab, regardless of their original source
+            framesPcap.length = 0;
+            
+            // Reset the PCAP file input to show default text
+            selectedFile = null;
+            dz.querySelector('.dz-title').textContent = 'Drop a PCAP file here';
+            
+            // Convert FrameSummary objects to {obj, raw} format
+            if (session.frames && session.frames.length > 0) {
+              const formattedFrames = session.frames.map(frame => ({
+                obj: frame,
+                raw: frame.fullHex || ''
+              }));
+              framesPcap.push(...formattedFrames);
+            }
+            
+            currentSessionId = session.id;
+            currentSessionName = session.name;
+            
+            // Show session indicator
+            showSessionIndicator(session.name);
+            
+            rerenderAll();
+            
+            // Always switch to pcap tab when loading a saved session
+            document.querySelector('[data-tab="pcap"]').click();
+            
+            toast(`Loaded session: ${session.name}`, 'ok');
+          }
+        } catch (e) {
+          console.error('Error loading session:', e);
+          toast('Failed to load session', 'err');
+        }
+      }
+      
+      async function deleteSession(sessionId) {
+        if (!confirm('Delete this session?')) return;
+        
+        try {
+          const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+          if (res.ok) {
+            loadLibrarySessions();
+            toast('Session deleted', 'ok');
+          }
+        } catch (e) {
+          toast('Failed to delete session', 'err');
+        }
+      }
+
+      let selectedFile = null;
+      let paused = false;
+      let proxyRunning = false;
+
+      // Frame persistence functions
+      function saveFramesToStorage() {
+        try {
+          const allFrames = [...framesPcap, ...framesProxy];
+          if (allFrames.length > 0) {
+            localStorage.setItem('savedFrames', JSON.stringify(allFrames));
+          }
+        } catch (e) {
+          console.warn('Failed to save frames to localStorage:', e);
+        }
+      }
+
+      function loadFramesFromStorage() {
+        try {
+          const saved = localStorage.getItem('savedFrames');
+          if (saved) {
+            const frames = JSON.parse(saved);
+            framesPcap.length = 0;
+            framesProxy.length = 0;
+
+            // Restore frames to appropriate arrays based on their source
+            frames.forEach(frame => {
+              if (frame.obj && frame.obj.dir) {
+                // Check if it's from live proxy (we'll mark these during live streaming)
+                if (frame.isLive) {
+                  framesProxy.push(frame);
+                } else {
+                  framesPcap.push(frame);
+                }
+              }
+            });
+
+            return true;
+          }
+        } catch (e) {
+          console.warn('Failed to load frames from localStorage:', e);
+        }
+        return false;
+      }
+
+      function clearFramesFromStorage() {
+        localStorage.removeItem('savedFrames');
+      }
+      const framesPcap = []; // {obj, raw}
+      const framesProxy = []; // {obj, raw}
+      function isProxyActive() {
+        const t = document.querySelector('.tab.active');
+        return t && t.dataset.tab === 'proxy' && proxyRunning;
+      }
+      function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
+      function setFile(file) {
+        selectedFile = file;
+        dz.querySelector('.dz-title').textContent = file ? file.name : 'Drop a PCAP file here';
+        if (file) {
+          startUpload();
+          // Update status for PCAP file
+          const statusEl = document.getElementById('status');
+          statusEl.textContent = `Processing ${file.name}…`;
+        }
+        // Hide session indicator when loading a PCAP file
+        hideSessionIndicator();
+      }
+      
+      function showSessionIndicator(sessionName) {
+        const indicator = document.getElementById('session-indicator');
+        const nameSpan = document.getElementById('session-name');
+        const statusEl = document.getElementById('status');
+        nameSpan.textContent = sessionName;
+        indicator.style.display = 'block';
+        statusEl.textContent = `Session loaded: ${sessionName}`;
+      }
+      
+      function hideSessionIndicator() {
+        const indicator = document.getElementById('session-indicator');
+        const statusEl = document.getElementById('status');
+        indicator.style.display = 'none';
+        currentSessionId = null;
+        currentSessionName = null;
+        statusEl.textContent = 'Waiting for a .pcap…';
+      }
+
+      dz.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => setFile(fileInput.files[0]))
+
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault(); dz.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+      });
+
+      function syntaxHighlight(json) {
+        // escape HTML
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // keys
+        json = json.replace(/\"(\\.|[^"\\])*\"(?=\s*:)/g, (m) => `<span class="hl-key">${m}</span>`);
+        // strings
+        json = json.replace(/\"(\\.|[^"\\])*\"(?!\s*:)/g, (m) => `<span class="hl-string">${m}</span>`);
+        // numbers
+        json = json.replace(/\b-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g, (m) => `<span class="hl-number">${m}</span>`);
+        // booleans
+        json = json.replace(/\b(?:true|false)\b/g, (m) => `<span class="hl-boolean">${m}</span>`);
+        // null
+        json = json.replace(/\bnull\b/g, '<span class="hl-null">null</span>');
+        return json;
+      }
+
+      function formatHex(hex) {
+        if (!hex) return '';
+        const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
+        let out = '';
+        for (let i = 0; i < bytes.length; i += 16) {
+          const line = bytes.slice(i, i + 16);
+          let hexPart = '';
+          let ascii = '';
+          for (let j = 0; j < line.length; j++) {
+            const b = parseInt(line[j], 16);
+            hexPart += line[j] + ' ';
+            if (j === 7) hexPart += ' ';
+            ascii += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+          }
+          const missing = 16 - line.length;
+          const padSpaces = missing * 3 + (line.length <= 8 ? 1 : 0);
+          hexPart += ' '.repeat(padSpaces);
+          out += hexPart + ' |' + ascii + '|\n';
+        }
+        return out.trimEnd();
+      }
+
+      function renderFrame(obj, raw, container) {
+        if (paused) return;
+        const el = document.createElement('div');
+        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s') + (obj.hasError ? ' err' : '');
+        const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
+        let tokenMeta = null;
+        if (tokenIndex && obj.token && tokenIndex[obj.token]) {
+          tokenMeta = tokenIndex[obj.token];
+        }
+        const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
+        const crcOk = hasCrcField ? !!obj.crcOk : true; // default to OK if missing
+        const crc = crcOk ? 'CRC OK' : 'CRC ERR';
+        const dirTitle = obj.dir === 'S->C' ? 'Server → Client (from host to client)' : 'Client → Server (from client to host)';
+        const crcTitle = crcOk ? 'CRC-16 IBM matches computed value' : 'CRC-16 IBM mismatch (computed != header)';
+        const tokenExample = (tokenMeta && tokenMeta.examples && tokenMeta.examples[0]) ? String(tokenMeta.examples[0]) : '';
+        const shortExample = tokenExample.length > 140 ? tokenExample.slice(0, 137) + '…' : tokenExample;
+        const tokenTitle = shortExample || 'No token description available';
+        el.innerHTML = `
+          <div class="meta">
+            <span class="pill ${dirPillClass}" title="${dirTitle}">${obj.dir}</span>
+            ${tokenMeta && tokenMeta.protocol ? `<span class=\"pill prot\" title=\"Protocol detected from tokens.json\">${tokenMeta.protocol}</span>` : ''}
+            <span class="pill token-pill" title="${tokenTitle}">token: ${obj.token ?? ''}</span>
+            <span class="pill" title="Frame type byte (header[7])">type: ${obj.type ?? ''}</span>
+            <span class="pill" title="Transmitter byte (header[5])">tx: ${obj.tx ?? ''}</span>
+            <span class="pill" title="Receiver byte (header[6])">rx: ${obj.rx ?? ''}</span>
+            <span class="pill" title="Payload length from header">len: ${obj.len ?? ''}</span>
+            <span class="pill ${crcOk ? '' : 'muted'}" title="${crcTitle}">${crc}</span>
+            <span class="pill muted" title="Frame timestamp">ts: ${obj.ts ?? ''}</span>
+            <span class="actions">
+              <button class="iconbtn" data-act="copy-json">Copy JSON</button>
+              <button class="iconbtn" data-act="copy-hex">Copy Hex</button>
+            </span>
+          </div>
+          
+          
+          ${obj.fullHex ? `<div class="hex"></div>` : ''}
+          <div class="popover"><div style="font-weight:600;margin-bottom:6px">${obj.token} ${tokenMeta && tokenMeta.protocol ? '('+tokenMeta.protocol+')' : ''}</div><pre></pre></div>
+        `;
+        // Set hex as plain text to avoid HTML injection breaking layout
+        if (obj.fullHex) {
+          const hexEl = el.querySelector('.hex');
+          if (hexEl) hexEl.textContent = formatHex(obj.fullHex);
+        }
+        el.addEventListener('click', async (e) => {
+          const target = e.target.closest('[data-act]');
+          if (!target) return;
+          const act = target.getAttribute('data-act');
+          if (act === 'copy-json') {
+            const pretty = JSON.stringify(obj, null, 2);
+            await navigator.clipboard.writeText(pretty);
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy JSON', 800); }
+          } else if (act === 'copy-hex') {
+            await navigator.clipboard.writeText(obj.fullHex || '');
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy Hex', 800); }
+          }
+        });
+        const targetContainer = container || (isProxyActive() ? document.getElementById('timeline-proxy') : document.getElementById('timeline-pcap'));
+        targetContainer.prepend(el);
+
+        // Save frames to localStorage after adding
+        saveFramesToStorage();
+      }
+
+
+      function rerenderAll() {
+        document.getElementById('timeline-pcap').innerHTML = '';
+        document.getElementById('timeline-proxy').innerHTML = '';
+        const renderList = (arr, containerId) => {
+          const container = document.getElementById(containerId);
+          for (const f of arr) {
+            renderFrame(f.obj, f.raw, container);
+          }
+        };
+        renderList(framesPcap, 'timeline-pcap');
+        renderList(framesProxy, 'timeline-proxy');
+      }
+
+
+      pauseBtn.addEventListener('click', () => { paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; if (!paused) rerenderAll(); });
+      clearBtn.addEventListener('click', () => {
+        activeFrames().length = 0;
+        clearFramesFromStorage();
+        rerenderAll();
+        // Hide session indicator when clearing
+        hideSessionIndicator();
+      });
+
+      async function startLive(){
+        if (window.es || liveBtn.disabled) return;
+        console.log('Connecting to live stream...');
+        window.es = new EventSource('/api/live');
+        liveBtn.dataset.on = '1'; liveBtn.textContent = '📡 Disconnect Live';
+        window.es.onopen = () => {
+          console.log('Live stream connected successfully');
+          setLiveChip(true);
+          toast('Live session active','ok');
+          // Switch to proxy tab if not already there
+          const proxyTab = document.querySelector('[data-tab="proxy"]');
+          if (proxyTab && !proxyTab.classList.contains('active')) {
+            proxyTab.click();
+          }
+        };
+        window.es.onmessage = (ev) => {
+          console.log('Received live frame:', ev.data);
+          try {
+            const obj = JSON.parse(ev.data);
+            const frameData = { obj, raw: ev.data, isLive: true };
+            activeFrames().push(frameData);
+            renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
+          } catch (e) {
+            console.error('Failed to parse live frame:', e, ev.data);
+          }
+        };
+        window.es.onerror = (e) => {
+          console.error('Live stream error:', e);
+          if (window.es) window.es.close();
+          window.es = null;
+          liveBtn.dataset.on='0';
+          liveBtn.textContent='Connect Live';
+          setLiveChip(false);
+          toast('Live session inactive','err');
+        };
+      }
+      function stopLive(){ if (window.es){ window.es.close(); window.es=null; } liveBtn.dataset.on='0'; liveBtn.textContent='📡 Connect Live'; setLiveChip(false); }
+
+      pxStart.addEventListener('click', async () => {
+        if (proxyRunning) return; // Already running
+        const body = new URLSearchParams({ listen: pxListen.value, host: pxHost.value, port: pxPort.value }).toString();
+        const res = await fetch('/api/proxy/start', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        if (res.ok) {
+          setProxyChip(true, `Proxy: :${pxListen.value} → ${pxHost.value}:${pxPort.value}`);
+          localStorage.setItem('proxyRunning', 'true');
+          // Clear any recovery indicator
+          chipProxy.querySelector('span:nth-child(2)').textContent = `Proxy: :${pxListen.value} → ${pxHost.value}:${pxPort.value}`;
+          toast('Proxy started','ok');
+          // Save the proxy configuration
+          await saveProxyConfig();
+          // Auto-connect live streaming when proxy starts
+          setTimeout(() => {
+            if (!window.es && !liveBtn.disabled) {
+              console.log('Auto-connecting live stream...');
+              startLive();
+            }
+          }, 500);
+        } else {
+          toast('Failed to start proxy','err');
+        }
+      });
+      pxStop.addEventListener('click', async () => {
+        if (!proxyRunning) return; // Not running
+        await fetch('/api/proxy/stop', { method: 'POST' });
+        setProxyChip(false);
+        localStorage.setItem('proxyRunning', 'false');
+        stopLive();
+        toast('Proxy stopped');
+      });
+      liveBtn.addEventListener('click', () => {
+        if (liveBtn.disabled) return;
+        if (liveBtn.dataset.on === '1') {
+          stopLive();
+          toast('Live session stopped');
+        } else {
+          startLive();
+        }
+      });
+      exportJsonlBtn.addEventListener('click', () => {
+        const lines = [];
+        for (const f of activeFrames()) {
+          lines.push(JSON.stringify(f.obj));
+        }
+        const blob = new Blob([lines.join('\n')+"\n"], { type: 'application/x-ndjson' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'session.summary.jsonl'; a.click();
+        URL.revokeObjectURL(url);
+      });
+      function showTokenInventory() {
+        const byToken = new Map();
+        const byProtocol = new Map();
+        
+        for (const f of activeFrames()) {
+          const tk = f.obj.token || '?';
+          const meta = tokenIndex && tokenIndex[tk];
+          const prot = (meta && meta.protocol) || 'UNKNOWN';
+          byToken.set(tk, (byToken.get(tk) || 0) + 1);
+          byProtocol.set(prot, (byProtocol.get(prot) || 0) + 1);
+        }
+        
+        // Sort tokens by count (descending)
+        const sortedTokens = [...byToken.entries()].sort((a, b) => b[1] - a[1]);
+        
+        // Sort protocols by count (descending)
+        const sortedProtocols = [...byProtocol.entries()].sort((a, b) => b[1] - a[1]);
+        
+        let html = '<div style="display:grid; gap:20px;">';
+        
+        // Protocol breakdown
+        html += '<div>';
+        html += '<h4 style="margin:0 0 12px 0; color:color-mix(in oklab, CanvasText 80%, transparent);">By Protocol</h4>';
+        html += '<div style="display:grid; gap:8px;">';
+        for (const [protocol, count] of sortedProtocols) {
+          const percentage = ((count / activeFrames().length) * 100).toFixed(1);
+          html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:color-mix(in oklab, CanvasText 3%, transparent); border-radius:6px;">
+              <span style="font-weight:500;">${protocol}</span>
+              <span style="font-size:14px; opacity:0.8;">${count} (${percentage}%)</span>
+            </div>
+          `;
+        }
+        html += '</div></div>';
+        
+        // Token breakdown
+        html += '<div>';
+        html += '<h4 style="margin:0 0 12px 0; color:color-mix(in oklab, CanvasText 80%, transparent);">By Token</h4>';
+        html += '<div style="display:grid; gap:6px; max-height:300px; overflow-y:auto;">';
+        for (const [token, count] of sortedTokens) {
+          const meta = tokenIndex && tokenIndex[token];
+          const protocol = (meta && meta.protocol) || 'UNKNOWN';
+          const percentage = ((count / activeFrames().length) * 100).toFixed(1);
+          const description = meta && meta.examples && meta.examples[0] ? meta.examples[0] : '';
+          
+          html += `
+            <div style="padding:8px 12px; background:color-mix(in oklab, CanvasText 3%, transparent); border-radius:6px; border-left:3px solid color-mix(in oklab, CanvasText 20%, transparent);">
+              <div style="display:flex; justify-content:flex-start; align-items:center; margin-bottom:4px;">
+                <span style="font-weight:600; font-family:monospace;">${token}</span>
+                <span style="font-size:14px; opacity:0.8; margin-left:auto;">${count} (${percentage}%)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; opacity:0.7;">
+                <span>${protocol}</span>
+                ${description ? `<span style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${description}">${description}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }
+        html += '</div></div>';
+        
+        html += '</div>';
+        
+        tokenInventoryContent.innerHTML = html;
+        tokenInventoryPopup.style.display = 'block';
+        tokenInventoryBackdrop.style.display = 'block';
+      }
+      
+      tokenInventoryBtn.addEventListener('click', showTokenInventory);
+      
+      function hideTokenInventory() {
+        tokenInventoryPopup.style.display = 'none';
+        tokenInventoryBackdrop.style.display = 'none';
+      }
+      
+      closeTokenPopup.addEventListener('click', hideTokenInventory);
+      tokenInventoryBackdrop.addEventListener('click', hideTokenInventory);
+
+
+
+      async function startUpload() {
+        if (!selectedFile) return;
+        // reset UI
+        document.getElementById('timeline-pcap').innerHTML = '';
+        activeFrames().length = 0;
+        // create temp download link anchor lazily
+        if (!downloadLink) { downloadLink = document.createElement('a'); downloadLink.style.display='none'; document.body.appendChild(downloadLink); }
+        downloadLink.removeAttribute('href');
+        downloadLink.setAttribute('download', (selectedFile.name || 'session') + '.summary.jsonl');
+        statusEl.textContent = 'Uploading and rendering…';
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: selectedFile
+        }).catch((e) => ({ ok: false, statusText: e.message }));
+
+        if (!res || !res.ok || !res.body) {
+          timelinePcap.innerHTML = '';
+          statusEl.textContent = 'Upload failed';
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const chunks = [];
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lineCount = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          buffer += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+            if (!line) continue;
+            try {
+              const obj = JSON.parse(line);
+              activeFrames().push({ obj, raw: line });
+              renderFrame(obj, line, document.getElementById('timeline-pcap'));
+              lineCount++;
+              statusEl.textContent = `Rendered ${lineCount} lines…`;
+            } catch (e) {
+              // ignore malformed lines
+            }
+          }
+        }
+        if (buffer) {
+          try {
+            const obj = JSON.parse(buffer);
+            activeFrames().push({ obj, raw: buffer });
+            renderFrame(obj, buffer, document.getElementById('timeline-pcap'));
+            lineCount++;
+          } catch (_) {
+            // ignore leftover text
+          }
+        }
+        const blob = new Blob(chunks, { type: 'application/x-ndjson' });
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        statusEl.textContent = `Done. ${lineCount} lines rendered.`;
+      }
+
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach(t => t.addEventListener('click', () => {
+        tabs.forEach(tt => tt.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+        // toggle visible timeline
+        const tabName = t.dataset.tab;
+        const timelineProxy = document.getElementById('timeline-proxy');
+        const timelinePcap = document.getElementById('timeline-pcap');
+        
+        if (tabName === 'proxy') {
+          timelineProxy.style.display = '';
+          timelinePcap.style.display = 'none';
+        } else if (tabName === 'pcap') {
+          timelineProxy.style.display = 'none';
+          timelinePcap.style.display = '';
+        } else if (tabName === 'library') {
+          // Hide both timelines when on library tab
+          timelineProxy.style.display = 'none';
+          timelinePcap.style.display = 'none';
+        }
+        
+
+      }));
+
+
+
+      document.getElementById('save-session').addEventListener('click', () => {
+        saveCurrentSession();
+      });
+
+      refreshLibraryBtn.addEventListener('click', loadLibrarySessions);
+      saveCurrentBtn.addEventListener('click', saveCurrentSession);
+       
+       // Initialize library on page load
+       loadLibrarySessions();
+       
+             // Load proxy configuration on page load
+      loadProxyConfig();
+
+      // Initialize button states
+      updateProxyButtons();
+       
+       // Save proxy configuration when values change
+      pxListen.addEventListener('change', saveProxyConfig);
+      pxHost.addEventListener('change', saveProxyConfig);
+      pxPort.addEventListener('change', saveProxyConfig);
+
+      // Save state before page unload
+      window.addEventListener('beforeunload', () => {
+        saveFramesToStorage();
+      });
+
+      // Periodic proxy status check to keep UI in sync
+      setInterval(() => {
+        if (document.visibilityState === 'visible') { // Only check when page is visible
+          fetch('/api/proxy/status')
+            .then(res => res.json())
+            .then(status => {
+              const currentlyShownAsRunning = chipProxy.classList.contains('ok');
+              if (status.running !== currentlyShownAsRunning) {
+                if (status.running) {
+                  setProxyChip(true, 'Proxy: running');
+                } else {
+                  setProxyChip(false);
+                  // If proxy stopped unexpectedly, update localStorage
+                  localStorage.setItem('proxyRunning', 'false');
+                  // Stop live stream if it was connected
+                  stopLive();
+                }
+              }
+            })
+            .catch(err => {
+              // If we can't reach the server, assume proxy is stopped
+              if (chipProxy.classList.contains('ok')) {
+                setProxyChip(false);
+                localStorage.setItem('proxyRunning', 'false');
+                stopLive();
+              }
+            });
+        }
+      }, 5000); // Check every 5 seconds
+
+      // Make functions globally available for onclick handlers
+      window.loadSession = loadSession;
+      window.deleteSession = deleteSession;
+    </script>
+  </body>
+  </html>
