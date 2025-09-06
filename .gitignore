@@ -65,3 +65,4 @@ node_modules/
 *.webm
 # Allow demo videos
 !dialtone_wiretap_demo.mp4
+!dialtone_wiretap_demo.gif
