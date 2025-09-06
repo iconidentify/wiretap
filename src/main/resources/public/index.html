@@ -623,34 +623,74 @@
         document.getElementById('file-type-indicator').textContent = '• PCAP File';
       }
 
+      // Tab switching function
+      function switchToTab(tabName) {
+        const targetTab = document.querySelector(`[data-tab="${tabName}"]`);
+        if (targetTab) {
+          // Remove active class from all tabs
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          // Add active class to target tab
+          targetTab.classList.add('active');
+
+          // Hide all tab panels
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+          // Show target tab panel
+          document.getElementById('tab-' + tabName).classList.add('active');
+
+          // Toggle visible timeline
+          const timelineProxy = document.getElementById('timeline-proxy');
+          const timelinePcap = document.getElementById('timeline-pcap');
+
+          if (tabName === 'proxy') {
+            timelineProxy.style.display = '';
+            timelinePcap.style.display = 'none';
+          } else if (tabName === 'pcap') {
+            timelineProxy.style.display = 'none';
+            timelinePcap.style.display = '';
+          }
+
+          // Update URL hash without triggering page reload
+          window.history.replaceState(null, null, '#' + tabName);
+        }
+      }
+
+      // Handle initial hash fragment on page load
+      function handleInitialHash() {
+        const hash = window.location.hash.substring(1); // Remove the '#'
+        if (hash === 'live' || hash === 'proxy') {
+          switchToTab('proxy');
+        } else if (hash === 'pcap') {
+          switchToTab('pcap');
+        }
+      }
+
       const tabs = document.querySelectorAll('.tab');
       tabs.forEach(t => t.addEventListener('click', () => {
-        tabs.forEach(tt => tt.classList.remove('active'));
-        t.classList.add('active');
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById('tab-' + t.dataset.tab).classList.add('active');
-        // toggle visible timeline
         const tabName = t.dataset.tab;
-        const timelineProxy = document.getElementById('timeline-proxy');
-        const timelinePcap = document.getElementById('timeline-pcap');
-        
-        if (tabName === 'proxy') {
-          timelineProxy.style.display = '';
-          timelinePcap.style.display = 'none';
-        } else if (tabName === 'pcap') {
-          timelineProxy.style.display = 'none';
-          timelinePcap.style.display = '';
-        }
+        switchToTab(tabName);
       }));
 
+      // Handle hash changes (for browser back/forward buttons)
+      window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.substring(1);
+        if (hash === 'live' || hash === 'proxy') {
+          switchToTab('proxy');
+        } else if (hash === 'pcap') {
+          switchToTab('pcap');
+        }
+      });
 
 
-       
+
+
              // Load proxy configuration on page load
       loadProxyConfig();
 
       // Initialize button states
       updateProxyButtons();
+
+      // Handle initial hash fragment for tab navigation
+      handleInitialHash();
        
        // Save proxy configuration when values change
       pxListen.addEventListener('change', saveProxyConfig);
