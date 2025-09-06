@@ -240,6 +240,12 @@
                   }
                 }
 
+                // As a backup, if we're in GUI mode and no frames were counted, set it manually
+                if (isGuiMode && totalFramesReceived === 0 && frames.length > 0) {
+                  totalFramesReceived = frames.length;
+                  updateSessionMetadata();
+                }
+
                 if (frames.length > 0) {
                   toast(`Loaded ${frames.length} frames from current session`, 'ok');
                 }
