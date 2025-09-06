@@ -677,16 +677,47 @@
         updateProxyButtons();
         toast('Proxy stopped');
       });
-      exportJsonlBtn.addEventListener('click', () => {
-        const lines = [];
-        for (const f of activeFrames()) {
-          lines.push(JSON.stringify(f.obj));
+      exportJsonlBtn.addEventListener('click', async () => {
+        try {
+          // Fetch all session frames from the server instead of relying on client-side arrays
+          const response = await fetch('/api/session/frames');
+          if (!response.ok) {
+            throw new Error(`Failed to fetch session frames: ${response.status}`);
+          }
+
+          const framesJson = await response.json();
+          const lines = [];
+
+          // Parse each frame JSON string and re-stringify for clean export
+          for (const frameJson of framesJson) {
+            try {
+              const frameObj = JSON.parse(frameJson);
+              lines.push(JSON.stringify(frameObj));
+            } catch (e) {
+              console.warn('Failed to parse frame:', frameJson, e);
+              // Include the original JSON string if parsing fails
+              lines.push(frameJson);
+            }
+          }
+
+          if (lines.length === 0) {
+            toast('No session frames to export', 'err');
+            return;
+          }
+
+          const blob = new Blob([lines.join('\n') + '\n'], { type: 'application/x-ndjson' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'session.summary.jsonl';
+          a.click();
+          URL.revokeObjectURL(url);
+
+          toast(`Exported ${lines.length} frames to JSONL`, 'ok');
+        } catch (error) {
+          console.error('Export failed:', error);
+          toast('Failed to export session frames', 'err');
         }
-        const blob = new Blob([lines.join('\n')+"\n"], { type: 'application/x-ndjson' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'session.summary.jsonl'; a.click();
-        URL.revokeObjectURL(url);
       });
 
 
