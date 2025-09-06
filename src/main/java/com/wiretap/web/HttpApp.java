@@ -27,13 +27,11 @@ public final class HttpApp {
     private final int httpPort;
     private final int aolServerPort;
     private volatile TcpProxyService proxy;
-    private final CaptureLibrary captureLibrary;
     private ServerGUI gui;
 
     public HttpApp(int httpPort, int aolServerPort) {
         this.httpPort = httpPort;
         this.aolServerPort = aolServerPort;
-        this.captureLibrary = new CaptureLibrary();
     }
 
     public void setGUI(ServerGUI gui) {
@@ -52,8 +50,6 @@ public final class HttpApp {
         server.createContext("/api/proxy/start", new ProxyStartHandler());
         server.createContext("/api/proxy/stop", new ProxyStopHandler());
         server.createContext("/api/proxy/status", new ProxyStatusHandler());
-        server.createContext("/api/sessions", new SessionsHandler());
-        server.createContext("/api/sessions/", new SessionHandler());
         server.createContext("/api/proxy-config", new ProxyConfigHandler());
         server.createContext("/api/upload", new UploadHandler(aolServerPort));
         // Use a cached thread pool so long-lived SSE connections don't starve other endpoints
@@ -419,121 +415,6 @@ public final class HttpApp {
         if (path.endsWith(".css")) return "text/css; charset=utf-8";
         if (path.endsWith(".html")) return "text/html; charset=utf-8";
         return "application/octet-stream";
-    }
-    
-    // Session management handlers
-    private final class SessionsHandler implements HttpHandler {
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            addCors(exchange.getResponseHeaders());
-            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                List<CaptureLibrary.CaptureSession> sessions = captureLibrary.getAllSessions();
-                String json = JsonUtil.toJson(sessions);
-                byte[] data = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                
-                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-                exchange.sendResponseHeaders(200, data.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(data);
-                } finally {
-                    exchange.close();
-                }
-            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Create new session
-                String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                java.util.Map<String, Object> request = JsonUtil.fromJson(body);
-                
-                String name = (String) request.get("name");
-                String source = (String) request.get("source");
-                Boolean isLive = (Boolean) request.get("isLive");
-                
-                if (name == null || source == null || isLive == null) {
-                    sendStatus(exchange, 400, "name, source, and isLive required");
-                    return;
-                }
-                
-                CaptureLibrary.CaptureSession session = captureLibrary.createSession(name, source, isLive);
-                String json = JsonUtil.toJson(session);
-                byte[] data = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                
-                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-                exchange.sendResponseHeaders(200, data.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(data);
-                } finally {
-                    exchange.close();
-                }
-            } else {
-                sendStatus(exchange, 405, "Method Not Allowed");
-            }
-        }
-    }
-    
-    private final class SessionHandler implements HttpHandler {
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            addCors(exchange.getResponseHeaders());
-            String path = exchange.getRequestURI().getPath();
-            String sessionId = path.substring("/api/sessions/".length()).split("/")[0];
-            
-            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Load session (this already loads frames from file)
-                System.out.println("[DEBUG] Loading session: " + sessionId);
-                CaptureLibrary.CaptureSession session = captureLibrary.loadSession(sessionId);
-                if (session == null) {
-                    System.out.println("[DEBUG] Session not found: " + sessionId);
-                    sendStatus(exchange, 404, "Session not found");
-                    return;
-                }
-                
-                System.out.println("[DEBUG] Session loaded with " + session.frameCount + " frames");
-
-                String json = JsonUtil.toJson(session);
-                byte[] data = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                System.out.println("[DEBUG] Sending session response: " + data.length + " bytes");
-                
-                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-                exchange.sendResponseHeaders(200, data.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(data);
-                } finally {
-                    exchange.close();
-                }
-            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod()) && path.endsWith("/save")) {
-                // Save session
-                // Read frame data from request body
-                String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                if (!body.isEmpty()) {
-                    try {
-                        // For now, skip frame parsing as it's complex - we'll handle this differently
-                        System.err.println("Frame data parsing not yet implemented in JsonUtil");
-                    } catch (Exception e) {
-                        System.err.println("Failed to parse frame data: " + e.getMessage());
-                    }
-                }
-                
-                boolean saved = captureLibrary.saveSession(sessionId);
-                if (!saved) {
-                    sendStatus(exchange, 404, "Session not found");
-                    return;
-                }
-                
-                exchange.sendResponseHeaders(200, 0);
-                exchange.close();
-            } else if ("DELETE".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Delete session
-                boolean deleted = captureLibrary.deleteSession(sessionId);
-                if (!deleted) {
-                    sendStatus(exchange, 404, "Session not found");
-                    return;
-                }
-                
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
-            } else {
-                sendStatus(exchange, 405, "Method Not Allowed");
-            }
-        }
     }
     
     private final class ProxyConfigHandler implements HttpHandler {

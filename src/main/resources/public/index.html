@@ -85,7 +85,6 @@
       <div class="tab-group">
         <div class="tab active" data-tab="proxy">Live Proxy</div>
         <div class="tab" data-tab="pcap">PCAP Analyzer</div>
-        <div class="tab" data-tab="library">Capture Library</div>
       </div>
       <div id="tab-proxy" class="tab-panel active">
         <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
@@ -109,25 +108,11 @@
           <div class="dz-sub">or click to choose</div>
           <input id="file" type="file" accept=".pcap,application/vnd.tcpdump.pcap" hidden />
         </div>
-        <div id="session-indicator" class="session-indicator" style="display:none; margin-top:12px; padding:8px 12px; background:color-mix(in oklab, CanvasText 5%, transparent); border-radius:8px; font-size:13px; color:color-mix(in oklab, CanvasText 80%, transparent);">
-          <span style="font-weight:500;">📚 Loaded Session:</span> <span id="session-name"></span>
-        </div>
         <div id="status" class="status muted" style="margin-top:8px">Loading…</div>
-      </div>
-      <div id="tab-library" class="tab-panel">
-        <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
-          <h3>Capture Library</h3>
-          <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
-            <button id="refresh-library" class="btn">Refresh Library</button>
-            <button id="save-current" class="btn">Save Current Session</button>
-          </div>
-          <div id="library-sessions" style="margin-top:16px; max-height:400px; overflow-y:auto;"></div>
-        </div>
       </div>
       <div class="controls toolbar">
         <button id="pause" class="btn">Pause</button>
         <button id="clear" class="btn">Clear</button>
-        <button id="save-session" class="btn">Save to Library</button>
       </div>
       <section class="output">
         <div class="card">
@@ -195,14 +180,7 @@
       const proxyStatus = document.getElementById('proxy-status');
       const chipProxy = document.getElementById('chip-proxy');
       const chipLive = document.getElementById('chip-live');
-      const refreshLibraryBtn = document.getElementById('refresh-library');
-      const saveCurrentBtn = document.getElementById('save-current');
-      const librarySessionsEl = document.getElementById('library-sessions');
       
-      // Session management
-      let currentSessionId = null;
-      let currentSessionName = null;
-
       
       // Proxy configuration persistence
       async function loadProxyConfig() {
@@ -216,18 +194,6 @@
           }
         } catch (e) {
           console.error('Failed to load proxy configuration:', e);
-        }
-
-        // Load saved frames
-        const framesLoaded = loadFramesFromStorage();
-        if (framesLoaded) {
-          const totalFrames = framesPcap.length + framesProxy.length;
-          console.log(`Restored ${totalFrames} frames from previous session`);
-          statusEl.textContent = `Restored ${totalFrames} frames from previous session`;
-          rerenderAll();
-          setTimeout(() => {
-            statusEl.textContent = 'Ready';
-          }, 3000);
         }
 
         // Check if proxy was running and try to recover
@@ -318,192 +284,11 @@
       function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
       
       // Session management functions
-      async function createSession(name, source, isLive) {
-        const res = await fetch('/api/sessions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, source, isLive })
-        });
-        if (res.ok) {
-          const session = await res.json();
-          currentSessionId = session.id;
-          currentSessionName = session.name;
-          return session;
-        }
-        return null;
-      }
-      
-      async function saveCurrentSession() {
-        // Always prompt for a name when saving
-        const name = prompt('Enter session name:');
-        if (!name) return;
-        
-        // Create a new session
-        const session = await createSession(name, isProxyActive() ? 'live' : 'pcap', isProxyActive());
-        if (!session) {
-          toast('Failed to create session', 'err');
-          return;
-        }
-        
-        currentSessionId = session.id;
-        currentSessionName = session.name;
-        
-        // Save all current frames (not just filtered ones)
-        const frames = activeFrames().map(f => f.obj);
-        
-        const res = await fetch(`/api/sessions/${currentSessionId}/save`, { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(frames)
-        });
-        if (res.ok) {
-          toast('Session saved successfully', 'ok');
-          loadLibrarySessions(); // Refresh the library
-        } else {
-          toast('Failed to save session', 'err');
-        }
-      }
-      
-
-      
-      async function loadLibrarySessions() {
-        try {
-          const res = await fetch('/api/sessions');
-          if (res.ok) {
-            const sessions = await res.json();
-            renderLibrarySessions(sessions);
-          }
-        } catch (e) {
-          console.error('Failed to load library sessions:', e);
-        }
-      }
-      
-      function renderLibrarySessions(sessions) {
-        if (sessions.length === 0) {
-          librarySessionsEl.innerHTML = '<div style="text-align:center; padding:20px; opacity:0.7;">No saved sessions</div>';
-          return;
-        }
-        
-        librarySessionsEl.innerHTML = sessions.map(session => `
-          <div style="border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:8px; padding:12px; margin-bottom:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-weight:600;">${session.name}</div>
-                <div style="font-size:12px; opacity:0.7;">
-                  ${session.source} • ${session.frameCount} frames • ${new Date(session.createdAt).toLocaleString()}
-                </div>
-              </div>
-              <div style="display:flex; gap:8px;">
-                <button class="btn" onclick="loadSession('${session.id}')" style="font-size:12px;">Load</button>
-                <button class="btn" onclick="deleteSession('${session.id}')" style="font-size:12px;">Delete</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-      
-      async function loadSession(sessionId) {
-        try {
-          const res = await fetch(`/api/sessions/${sessionId}`);
-          if (res.ok) {
-            const session = await res.json();
-            
-            // Always load saved sessions into the pcap tab, regardless of their original source
-            framesPcap.length = 0;
-            
-            // Reset the PCAP file input to show default text
-            selectedFile = null;
-            dz.querySelector('.dz-title').textContent = 'Drop a PCAP file here';
-            
-            // Convert FrameSummary objects to {obj, raw} format
-            if (session.frames && session.frames.length > 0) {
-              const formattedFrames = session.frames.map(frame => ({
-                obj: frame,
-                raw: frame.fullHex || ''
-              }));
-              framesPcap.push(...formattedFrames);
-            }
-            
-            currentSessionId = session.id;
-            currentSessionName = session.name;
-            
-            // Show session indicator
-            showSessionIndicator(session.name);
-            
-            rerenderAll();
-            
-            // Always switch to pcap tab when loading a saved session
-            document.querySelector('[data-tab="pcap"]').click();
-            
-            toast(`Loaded session: ${session.name}`, 'ok');
-          }
-        } catch (e) {
-          console.error('Error loading session:', e);
-          toast('Failed to load session', 'err');
-        }
-      }
-      
-      async function deleteSession(sessionId) {
-        if (!confirm('Delete this session?')) return;
-        
-        try {
-          const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-          if (res.ok) {
-            loadLibrarySessions();
-            toast('Session deleted', 'ok');
-          }
-        } catch (e) {
-          toast('Failed to delete session', 'err');
-        }
-      }
 
       let selectedFile = null;
       let paused = false;
       let proxyRunning = false;
 
-      // Frame persistence functions
-      function saveFramesToStorage() {
-        try {
-          const allFrames = [...framesPcap, ...framesProxy];
-          if (allFrames.length > 0) {
-            localStorage.setItem('savedFrames', JSON.stringify(allFrames));
-          }
-        } catch (e) {
-          console.warn('Failed to save frames to localStorage:', e);
-        }
-      }
-
-      function loadFramesFromStorage() {
-        try {
-          const saved = localStorage.getItem('savedFrames');
-          if (saved) {
-            const frames = JSON.parse(saved);
-            framesPcap.length = 0;
-            framesProxy.length = 0;
-
-            // Restore frames to appropriate arrays based on their source
-            frames.forEach(frame => {
-              if (frame.obj && frame.obj.dir) {
-                // Check if it's from live proxy (we'll mark these during live streaming)
-                if (frame.isLive) {
-                  framesProxy.push(frame);
-                } else {
-                  framesPcap.push(frame);
-                }
-              }
-            });
-
-            return true;
-          }
-        } catch (e) {
-          console.warn('Failed to load frames from localStorage:', e);
-        }
-        return false;
-      }
-
-      function clearFramesFromStorage() {
-        localStorage.removeItem('savedFrames');
-      }
       const framesPcap = []; // {obj, raw}
       const framesProxy = []; // {obj, raw}
       function isProxyActive() {
@@ -520,27 +305,8 @@
           const statusEl = document.getElementById('status');
           statusEl.textContent = `Processing ${file.name}…`;
         }
-        // Hide session indicator when loading a PCAP file
-        hideSessionIndicator();
       }
       
-      function showSessionIndicator(sessionName) {
-        const indicator = document.getElementById('session-indicator');
-        const nameSpan = document.getElementById('session-name');
-        const statusEl = document.getElementById('status');
-        nameSpan.textContent = sessionName;
-        indicator.style.display = 'block';
-        statusEl.textContent = `Session loaded: ${sessionName}`;
-      }
-      
-      function hideSessionIndicator() {
-        const indicator = document.getElementById('session-indicator');
-        const statusEl = document.getElementById('status');
-        indicator.style.display = 'none';
-        currentSessionId = null;
-        currentSessionName = null;
-        statusEl.textContent = 'Waiting for a .pcap…';
-      }
 
       dz.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', () => setFile(fileInput.files[0]))
@@ -648,9 +414,6 @@
         });
         const targetContainer = container || (isProxyActive() ? document.getElementById('timeline-proxy') : document.getElementById('timeline-pcap'));
         targetContainer.prepend(el);
-
-        // Save frames to localStorage after adding
-        saveFramesToStorage();
       }
 
 
@@ -673,8 +436,6 @@
         activeFrames().length = 0;
         clearFramesFromStorage();
         rerenderAll();
-        // Hide session indicator when clearing
-        hideSessionIndicator();
       });
 
       async function startLive(){
@@ -927,26 +688,12 @@
         } else if (tabName === 'pcap') {
           timelineProxy.style.display = 'none';
           timelinePcap.style.display = '';
-        } else if (tabName === 'library') {
-          // Hide both timelines when on library tab
-          timelineProxy.style.display = 'none';
-          timelinePcap.style.display = 'none';
-        }
         
 
       }));
 
 
 
-      document.getElementById('save-session').addEventListener('click', () => {
-        saveCurrentSession();
-      });
-
-      refreshLibraryBtn.addEventListener('click', loadLibrarySessions);
-      saveCurrentBtn.addEventListener('click', saveCurrentSession);
-       
-       // Initialize library on page load
-       loadLibrarySessions();
        
              // Load proxy configuration on page load
       loadProxyConfig();
@@ -959,10 +706,6 @@
       pxHost.addEventListener('change', saveProxyConfig);
       pxPort.addEventListener('change', saveProxyConfig);
 
-      // Save state before page unload
-      window.addEventListener('beforeunload', () => {
-        saveFramesToStorage();
-      });
 
       // Periodic proxy status check to keep UI in sync
       setInterval(() => {
@@ -994,9 +737,6 @@
         }
       }, 5000); // Check every 5 seconds
 
-      // Make functions globally available for onclick handlers
-      window.loadSession = loadSession;
-      window.deleteSession = deleteSession;
     </script>
   </body>
   </html>
