@@ -104,8 +104,7 @@
       <div id="tab-proxy" class="tab-panel active">
         <!-- GUI Mode: Show session metadata -->
         <div id="proxy-gui-mode" style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px; display:none;">
-          <h3>Session Metadata</h3>
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:12px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
             <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
               <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Total Frames</div>
               <div style="font-size:18px; font-weight:600;" id="session-frames">0</div>
@@ -121,12 +120,6 @@
             <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
               <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Data Rate</div>
               <div style="font-size:18px; font-weight:600;" id="data-rate">0 B/s</div>
-            </div>
-          </div>
-          <div style="margin-top:16px; padding:12px; background: var(--surface-card); border-radius:8px;">
-            <div style="font-size:14px; font-weight:600; margin-bottom:8px;">Recent Activity</div>
-            <div id="recent-activity" style="font-size:12px; opacity:0.8; max-height:100px; overflow-y:auto;">
-              Session started - waiting for connections...
             </div>
           </div>
         </div>
@@ -249,9 +242,6 @@
 
                 if (frames.length > 0) {
                   toast(`Loaded ${frames.length} frames from current session`, 'ok');
-                  if (isGuiMode) {
-                    addRecentActivity(`Loaded ${frames.length} frames from current session`);
-                  }
                 }
               }
             } catch (err) {
@@ -366,13 +356,6 @@
         }
       }
 
-      function addRecentActivity(message) {
-        if (!isGuiMode) return;
-        const activityDiv = document.getElementById('recent-activity');
-        const timestamp = new Date().toLocaleTimeString();
-        activityDiv.innerHTML += `<div>${timestamp}: ${message}</div>`;
-        activityDiv.scrollTop = activityDiv.scrollHeight;
-      }
       async function loadJsonlFile(file) {
         // reset UI
         document.getElementById('timeline-pcap').innerHTML = '';
@@ -597,7 +580,6 @@
             lastSequenceNumber = null;
             sequenceGaps = 0;
             updateSessionMetadata();
-            addRecentActivity('Live stream connected');
           }
 
           // Only switch to proxy tab if user hasn't explicitly navigated elsewhere
@@ -618,11 +600,6 @@
             const frameData = { obj, raw: ev.data, isLive: true };
             activeFrames().push(frameData);
             renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
-
-            // Log activity for first few frames
-            if (isGuiMode && totalFramesReceived <= 5) {
-              addRecentActivity(`Received frame #${totalFramesReceived} (${obj.dir})`);
-            }
           } catch (e) {
             console.error('Failed to parse live frame:', e, ev.data);
           }
@@ -655,7 +632,6 @@
         if (isGuiMode) {
           activeConnections = 0;
           updateSessionMetadata();
-          addRecentActivity('Live stream disconnected');
         }
       }
 
