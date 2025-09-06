@@ -77,5 +77,30 @@
       {"name": "payload"},
       {"name": "hexDump"}
     ]
+  },
+  {
+    "name": "com.wiretap.web.ServerGUI",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": ["int", "int"]
+      },
+      {
+        "name": "show",
+        "parameterTypes": []
+      },
+      {
+        "name": "waitForClose",
+        "parameterTypes": []
+      },
+      {
+        "name": "shutdown",
+        "parameterTypes": []
+      },
+      {
+        "name": "updateProxyStatus",
+        "parameterTypes": ["boolean", "java.lang.String"]
+      }
+    ]
   }
 ]

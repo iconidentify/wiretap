@@ -28,11 +28,16 @@ public final class HttpApp {
     private final int aolServerPort;
     private volatile TcpProxyService proxy;
     private final CaptureLibrary captureLibrary;
+    private ServerGUI gui;
 
     public HttpApp(int httpPort, int aolServerPort) {
         this.httpPort = httpPort;
         this.aolServerPort = aolServerPort;
         this.captureLibrary = new CaptureLibrary();
+    }
+
+    public void setGUI(ServerGUI gui) {
+        this.gui = gui;
     }
 
     public void start() throws IOException {
@@ -88,6 +93,9 @@ public final class HttpApp {
                 if (proxy != null && proxy.isRunning()) { proxy.close(); }
                 proxy = new TcpProxyService(listen, host, port);
                 proxy.start();
+                if (gui != null) {
+                    gui.updateProxyStatus(true, host + ":" + port);
+                }
             }
             byte[] b = ("{\"ok\":true,\"listen\":"+listen+",\"dest\":\""+host+":"+port+"\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
@@ -107,7 +115,18 @@ public final class HttpApp {
             synchronized (HttpApp.this) { if (proxy != null) { toClose = proxy; proxy = null; } }
             if (toClose != null) {
                 TcpProxyService finalToClose = toClose;
-                new Thread(() -> { try { finalToClose.close(); } catch (Exception ignored) {} }, "aol-proxy-stop").start();
+                new Thread(() -> {
+                    try {
+                        finalToClose.close();
+                        if (gui != null) {
+                            gui.updateProxyStatus(false, "Stopped");
+                        }
+                    } catch (Exception ignored) {}
+                }, "aol-proxy-stop").start();
+            } else {
+                if (gui != null) {
+                    gui.updateProxyStatus(false, "Not running");
+                }
             }
             byte[] b = "{\"ok\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
