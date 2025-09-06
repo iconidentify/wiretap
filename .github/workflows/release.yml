@@ -69,13 +69,13 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Build native image for macOS with Gluon
-      run: mvn gluonfx:build gluonfx:package -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath" -Dgluonfx.macos.codesign=false
+      run: mvn gluonfx:build -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
 
     - name: Create macOS app bundle
       run: |
         mkdir -p WireTap.app/Contents/MacOS
         mkdir -p WireTap.app/Contents/Resources
-        cp target/gluonfx/x86_64-darwin/wiretap WireTap.app/Contents/MacOS/
+        cp target/gluonfx/aarch64-darwin/wiretap WireTap.app/Contents/MacOS/
         cat > WireTap.app/Contents/Info.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -103,10 +103,10 @@ jobs:
 
     - name: Upload macOS executable to Release
       run: |
-        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap; then
+        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/aarch64-darwin/wiretap; then
           echo "macOS executable upload failed, trying to delete and re-upload..."
           gh release delete-asset ${{ github.event.release.tag_name }} wiretap || true
-          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap
+          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/aarch64-darwin/wiretap
         fi
         if ! gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap; then
           echo "macOS app bundle upload failed, trying to delete and re-upload..."
