@@ -1,41 +1,59 @@
-# Maven
-/target/
-!.mvn/wrapper/maven-wrapper.jar
-
-# IntelliJ IDEA
-/.idea/
-*.iml
-*.iws
-*.ipr
-
-# Eclipse
-.project
-.classpath
-.settings/
-
-# VS Code
-.vscode/
-
-# MacOS
-.DS_Store
-
-# Logs
-*.log
-
-# Java
+# Build artifacts
+target/
 *.class
-hs_err_pid*
-replay_pid*
-
-# Packaging
 *.jar
 *.war
 *.ear
 
-# Other build
-out/
-build/
+# Maven wrapper
+.mvn/
+mvnw
+mvnw.cmd
 
-# Git
-*.orig
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
 
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build directories and artifacts
+WireTap.app/
+WireTap-macOS.app.zip
+wiretap-macos
+
+# Apache Maven directory (downloaded by build script)
+apache-maven-*
+
+# Reports and logs
+reports/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Node modules (if any)
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
