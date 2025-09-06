@@ -92,7 +92,14 @@ jobs:
         EOF
 
     - name: Rename macOS binary
-      run: mv target/gluonfx/aarch64-darwin/wiretap target/gluonfx/aarch64-darwin/wiretap-macos-arm64
+      run: |
+        ls -la target/gluonfx/aarch64-darwin/
+        if [ -f target/gluonfx/aarch64-darwin/wiretap ]; then
+          mv target/gluonfx/aarch64-darwin/wiretap target/gluonfx/aarch64-darwin/wiretap-macos-arm64
+        else
+          echo "Binary not found as 'wiretap', checking for other names..."
+          find target/gluonfx/aarch64-darwin/ -type f -executable -exec mv {} target/gluonfx/aarch64-darwin/wiretap-macos-arm64 \;
+        fi
 
     - name: Upload macOS executable to Release
       run: |
