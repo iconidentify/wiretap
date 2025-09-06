@@ -123,15 +123,12 @@
           <input id="file" type="file" accept=".pcap,.jsonl,application/vnd.tcpdump.pcap,application/x-ndjson" hidden />
         </div>
       </div>
-      <div class="controls toolbar">
-        <button id="pause" class="btn" disabled style="opacity: 0.5;">Pause</button>
-        <button id="clear" class="btn">Clear</button>
-      </div>
       <section class="output">
         <div class="card">
           <header>
             <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
             <div class="actions">
+              <button id="clear" class="iconbtn">Clear</button>
               <button id="exportJsonl" class="iconbtn">Export JSONL</button>
             </div>
           </header>
@@ -149,7 +146,6 @@
       const timelinePcap = document.getElementById('timeline-pcap');
       const timelineProxy = document.getElementById('timeline-proxy');
 
-      const pauseBtn = document.getElementById('pause');
       const clearBtn = document.getElementById('clear');
 
       const exportJsonlBtn = document.getElementById('exportJsonl');
@@ -271,7 +267,6 @@
       // Session management functions
 
       let selectedFile = null;
-      let paused = false;
       let proxyRunning = false;
 
       const framesPcap = []; // {obj, raw}
@@ -387,7 +382,6 @@
       }
 
       function renderFrame(obj, raw, container) {
-        if (paused) return;
         const el = document.createElement('div');
         el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s') + (obj.hasError ? ' err' : '');
         const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
@@ -454,7 +448,6 @@
       }
 
 
-      pauseBtn.addEventListener('click', () => { paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; if (!paused) rerenderAll(); });
       clearBtn.addEventListener('click', () => {
         activeFrames().length = 0;
         rerenderAll();
