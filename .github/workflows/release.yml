@@ -130,7 +130,7 @@ jobs:
 
     - name: Build native image for Windows
       run: |
-        $env:GRAALVM_HOME\bin\native-image.cmd `
+        & "$env:GRAALVM_HOME\bin\native-image.cmd" `
           --no-fallback `
           --allow-incomplete-classpath `
           --initialize-at-build-time `
