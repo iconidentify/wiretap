@@ -23,7 +23,7 @@ jobs:
       run: mvn clean package
 
     - name: Upload JAR to Release
-      run: gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar
+      run: gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -87,7 +87,7 @@ jobs:
 
     - name: Upload macOS executable to Release
       run: |
-        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap
+        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap --clobber
         gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -122,6 +122,6 @@ jobs:
       run: mvn gluonfx:build gluonfx:package
 
     - name: Upload Windows executable to Release
-      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe
+      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
