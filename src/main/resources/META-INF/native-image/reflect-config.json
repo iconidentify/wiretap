@@ -260,5 +260,24 @@
       {"name": "runLater", "parameterTypes": ["java.lang.Runnable"]},
       {"name": "exit", "parameterTypes": []}
     ]
+  },
+  {
+    "name": "com.sun.glass.ui.mac.MacVariant",
+    "methods": [
+      {"name": "toString", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "com.sun.glass.ui.PlatformFactory",
+    "methods": [
+      {"name": "getPlatformFactory", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "com.sun.glass.ui.Application",
+    "methods": [
+      {"name": "GetApplication", "parameterTypes": []},
+      {"name": "runLoop", "parameterTypes": ["java.lang.Runnable"]}
+    ]
   }
 ]
