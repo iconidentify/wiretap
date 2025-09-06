@@ -133,8 +133,8 @@
             Port: <input id="px-port" type="number" value="5190" style="width:80px">
           </div>
           <div class="proxy-controls" style="margin-top:12px;">
-            <button id="px-start" class="btn primary" style="min-width: 100px;">▶ Start Proxy</button>
-            <button id="px-stop" class="btn danger" style="min-width: 100px;" disabled>⏹ Stop Proxy</button>
+            <button id="px-start" class="btn primary" style="min-width: 100px;">Start Proxy</button>
+            <button id="px-stop" class="btn danger" style="min-width: 100px;" disabled>Stop Proxy</button>
             <span id="proxy-status" style="font-size: 12px; opacity: 0.7; margin-left: 8px;">Proxy stopped</span>
           </div>
         </div>
@@ -292,16 +292,16 @@
       function updateProxyButtons() {
         if (proxyRunning) {
           pxStart.disabled = true;
-          pxStart.textContent = '▶ Proxy Running';
+          pxStart.textContent = 'Proxy Running';
           pxStop.disabled = false;
-          pxStop.textContent = '⏹ Stop Proxy';
+          pxStop.textContent = 'Stop Proxy';
           proxyStatus.textContent = 'Proxy running';
           proxyStatus.style.color = 'var(--ok)';
         } else {
           pxStart.disabled = false;
-          pxStart.textContent = '▶ Start Proxy';
+          pxStart.textContent = 'Start Proxy';
           pxStop.disabled = true;
-          pxStop.textContent = '⏹ Stop Proxy';
+          pxStop.textContent = 'Stop Proxy';
           proxyStatus.textContent = 'Proxy stopped';
           proxyStatus.style.color = 'currentColor';
         }
@@ -404,13 +404,13 @@
 
           // Update UI based on file type
           if (isJsonl) {
-            dz.querySelector('.dz-title').textContent = `📄 ${fileName}`;
+            dz.querySelector('.dz-title').textContent = `JSONL: ${fileName}`;
             loadJsonlFile(file);
           } else if (isPcap) {
-            dz.querySelector('.dz-title').textContent = `📦 ${fileName}`;
+            dz.querySelector('.dz-title').textContent = `PCAP: ${fileName}`;
             startUpload();
           } else {
-            dz.querySelector('.dz-title').textContent = `❓ ${fileName}`;
+            dz.querySelector('.dz-title').textContent = `File: ${fileName}`;
             return;
           }
         } else {

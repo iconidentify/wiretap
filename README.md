@@ -32,9 +32,11 @@ xattr -c wiretap-macos-arm64
 
 ### Windows
 ```bash
-# Run the executable (may show security warning for unsigned binary)
+# Run the executable - Windows will show a security warning for unsigned binaries
 wiretap-windows-x64.exe
 ```
+
+**Note**: Windows will display a security warning since the binary is unsigned. Click "Run anyway" to proceed. The application will work normally despite the warning.
 
 ## Command Line Options
 

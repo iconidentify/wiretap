@@ -336,12 +336,12 @@ public class ServerGUI extends Application {
         proxyStatusLed.setFill(Color.web("#9E9E9E")); // Gray when stopped
 
         // Primary toggle (single source of truth for state)
-        proxyToggleButton = new Button("▶ Start Proxy");
+        proxyToggleButton = new Button("Start Proxy");
         proxyToggleButton.setStyle("-fx-background-color: " + toHex(primaryColor) + "; -fx-text-fill: white; -fx-background-radius: 8;");
         proxyToggleButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
         proxyToggleButton.setPrefWidth(140);
         proxyToggleButton.setOnAction(e -> {
-            if (proxyToggleButton.getText().startsWith("▶")) {
+            if (proxyToggleButton.getText().startsWith("Start")) {
                 startProxy();
             } else {
                 stopProxy();
@@ -350,13 +350,13 @@ public class ServerGUI extends Application {
         proxyToggleButton.setTooltip(new Tooltip("Start/Stop the AOL proxy (⌘/Ctrl+S)"));
 
         // Secondary actions: Live Proxy + PCAP Analyzer (open specific tabs)
-        liveProxyButton = new Button("🌐 Live Proxy");
+        liveProxyButton = new Button("Live Proxy");
         liveProxyButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
         liveProxyButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
         liveProxyButton.setOnAction(e -> openWebInterface("live"));
         liveProxyButton.setTooltip(new Tooltip("Open Web UI on Live Proxy tab (⌘/Ctrl+L)"));
 
-        pcapAnalyzerButton = new Button("🧪 PCAP Analyzer");
+        pcapAnalyzerButton = new Button("PCAP Analyzer");
         pcapAnalyzerButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
         pcapAnalyzerButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
         pcapAnalyzerButton.setOnAction(e -> openWebInterface("pcap"));
@@ -591,10 +591,10 @@ public class ServerGUI extends Application {
             // Toggle button text + style
             if (proxyToggleButton != null) {
                 if (isRunning) {
-                    proxyToggleButton.setText("⏹ Stop Proxy");
+                    proxyToggleButton.setText("Stop Proxy");
                     proxyToggleButton.setStyle("-fx-background-color: #757575; -fx-text-fill: white; -fx-background-radius: 8;");
                 } else {
-                    proxyToggleButton.setText("▶ Start Proxy");
+                    proxyToggleButton.setText("Start Proxy");
                     proxyToggleButton.setStyle("-fx-background-color: " + toHex(Color.web("#1976D2")) + "; -fx-text-fill: white; -fx-background-radius: 8;");
                 }
             }
