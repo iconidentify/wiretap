@@ -56,7 +56,6 @@
     </plugins>
   </build>
   <dependencies>
-    <!-- No external dependencies - using JDK-only JSON handling for GraalVM compatibility -->
   </dependencies>
 </project>
 
