@@ -650,16 +650,18 @@
           }
 
           // Update URL hash without triggering page reload
-          window.history.replaceState(null, null, '#' + tabName);
+          window.history.replaceState(null, null, '#/' + tabName);
         }
       }
 
       // Handle initial hash fragment on page load
       function handleInitialHash() {
         const hash = window.location.hash.substring(1); // Remove the '#'
-        if (hash === 'live' || hash === 'proxy') {
+        // Handle both formats: #/pcap and #pcap
+        const cleanHash = hash.startsWith('/') ? hash.substring(1) : hash;
+        if (cleanHash === 'live' || cleanHash === 'proxy') {
           switchToTab('proxy');
-        } else if (hash === 'pcap') {
+        } else if (cleanHash === 'pcap') {
           switchToTab('pcap');
         }
       }
@@ -673,9 +675,11 @@
       // Handle hash changes (for browser back/forward buttons)
       window.addEventListener('hashchange', () => {
         const hash = window.location.hash.substring(1);
-        if (hash === 'live' || hash === 'proxy') {
+        // Handle both formats: #/pcap and #pcap
+        const cleanHash = hash.startsWith('/') ? hash.substring(1) : hash;
+        if (cleanHash === 'live' || cleanHash === 'proxy') {
           switchToTab('proxy');
-        } else if (hash === 'pcap') {
+        } else if (cleanHash === 'pcap') {
           switchToTab('pcap');
         }
       });
