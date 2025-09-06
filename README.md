@@ -201,6 +201,77 @@ The `protocol/` directory contains extensive documentation about the AOL protoco
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Release Notes - v1.0.0
+
+### 🎉 Major Features
+
+#### 🌐 **Modern Web Interface**
+- Dark-themed dashboard with professional UI
+- Real-time packet streaming with Server-Sent Events
+- Interactive protocol visualization with syntax highlighting
+- Session frame persistence and auto-loading
+- Toast notifications for all user feedback
+- Automatic live stream reconnection
+
+#### 🖥️ **Native GUI Application**
+- Classic Windows-style interface (mIRC circa 1996 inspired)
+- LED-style status indicators for proxy state
+- Configurable listen and destination ports
+- Real-time proxy monitoring
+- Professional typography and consistent styling
+
+#### 🛠️ **Headless Server Mode**
+- Production-ready server mode with `--no-gui` flag
+- Full web API functionality without GUI overhead
+- Perfect for remote deployments and automation
+- Graceful shutdown handling
+
+#### 📊 **Advanced Protocol Analysis**
+- Comprehensive AOL protocol reverse engineering
+- TCP stream reassembly and Ethernet decoding
+- Frame checksum validation (CRC-16 IBM)
+- Token and atom database with examples
+- JSON/JSONL export with pretty printing
+
+### 🚀 **Performance & Reliability**
+- High-performance packet processing
+- Session persistence across page refreshes
+- Automatic reconnection for interrupted streams
+- Memory-efficient frame storage (last 1000 frames)
+- Thread-safe operations
+
+### 📋 **Usage**
+
+#### Interactive GUI Mode (Default)
+```bash
+java -jar wiretap-1.0.0.jar
+```
+
+#### Headless Server Mode
+```bash
+java -jar wiretap-1.0.0.jar --no-gui --port 8080
+```
+
+#### PCAP Analysis
+```bash
+java -jar wiretap-1.0.0.jar --pcap capture.pcap --pretty
+```
+
+### 🏗️ **Technical Architecture**
+- Built with Java 17+ for modern performance
+- RESTful web API with comprehensive endpoints
+- Real-time streaming with WebSockets/Server-Sent Events
+- Modular design for easy extension
+- Cross-platform compatibility (macOS, Windows, Linux)
+
+### 📚 **Documentation**
+- Comprehensive README with usage examples
+- Complete API documentation
+- Protocol documentation and examples
+- Development setup instructions
+
+---
+
 ## Disclaimer
 
 This tool is for educational and research purposes only. Ensure you have proper authorization before capturing or analyzing network traffic.
