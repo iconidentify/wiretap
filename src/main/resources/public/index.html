@@ -242,7 +242,6 @@
 
                 // As a backup, if we're in GUI mode and no frames were counted, set it manually
                 if (isGuiMode && totalFramesReceived === 0 && frames.length > 0) {
-                  console.log('Backup: Setting totalFramesReceived from historical frames:', frames.length);
                   totalFramesReceived = frames.length;
                   updateSessionMetadata();
                 }
@@ -589,7 +588,6 @@
               sequenceGaps = 0;
             } else {
               // Preserve existing session start time and metadata when reconnecting
-              console.log('Reconnecting to live stream, preserving existing frame count:', totalFramesReceived);
             }
             updateSessionMetadata();
           }
