@@ -56,7 +56,6 @@ jobs:
       run: |
         $GRAALVM_HOME/bin/native-image \
           --no-fallback \
-          --allow-incomplete-classpath \
           --initialize-at-build-time \
           -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json \
           -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json \
@@ -64,7 +63,6 @@ jobs:
           -H:+PrintClassInitialization \
           --enable-url-protocols=http,https \
           -Djava.awt.headless=false \
-          -H:+AllowIncompleteClasspath \
           -H:+AddAllCharsets \
           --enable-http \
           --enable-https \
@@ -148,7 +146,6 @@ jobs:
       run: |
         & "$env:GRAALVM_HOME\bin\native-image.cmd" `
           --no-fallback `
-          --allow-incomplete-classpath `
           --initialize-at-build-time `
           -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json `
           -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json `
@@ -156,7 +153,6 @@ jobs:
           -H:+PrintClassInitialization `
           --enable-url-protocols=http,https `
           -Djava.awt.headless=false `
-          -H:+AllowIncompleteClasspath `
           -H:+AddAllCharsets `
           --enable-http `
           --enable-https `
@@ -171,7 +167,7 @@ jobs:
           --enable-monitoring=jvmstat `
           --no-server `
           -jar target/wiretap-1.0.0.jar `
-          wiretap-windows
+          "wiretap-windows"
       shell: pwsh
 
     - name: Upload Windows executable to Release
