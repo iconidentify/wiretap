@@ -8,6 +8,15 @@ A network protocol analyzer and packet capture tool designed specifically for re
 
 *The WireTap web interface showing real-time AOL protocol analysis and packet capture.*
 
+## Demo Video
+
+<video width="720" height="480" controls>
+  <source src="dialtone_wiretap_demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+*Demonstration of the reverse-engineered dialtone server working through the WireTap proxy, showing real-time protocol analysis.*
+
 ## Features
 
 - **Real-time AOL Protocol Analysis** - Live packet capture and dissection

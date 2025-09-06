@@ -57,3 +57,11 @@ node_modules/
 .env
 .env.local
 .env.production
+
+# Video files (keep only demo videos)
+*.mov
+*.avi
+*.mkv
+*.webm
+# Allow demo videos
+!dialtone_wiretap_demo.mp4
