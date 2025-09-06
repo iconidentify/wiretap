@@ -1,0 +1,81 @@
+[
+  {
+    "name": "com.wiretap.Main",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "main",
+        "parameterTypes": ["java.lang.String[]"]
+      }
+    ]
+  },
+  {
+    "name": "com.wiretap.web.HttpApp",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": ["int", "int"]
+      },
+      {
+        "name": "start",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.wiretap.web.CaptureLibrary",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "createSession",
+        "parameterTypes": ["java.lang.String", "java.lang.String", "boolean"]
+      },
+      {
+        "name": "loadSession",
+        "parameterTypes": ["java.lang.String"]
+      },
+      {
+        "name": "saveSession",
+        "parameterTypes": ["java.lang.String"]
+      },
+      {
+        "name": "getAllSessions",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.wiretap.web.CaptureLibrary$CaptureSession",
+    "fields": [
+      {"name": "id"},
+      {"name": "name"},
+      {"name": "source"},
+      {"name": "isLive"},
+      {"name": "createdAt"},
+      {"name": "lastUpdated"},
+      {"name": "lastSaved"},
+      {"name": "frameCount"},
+      {"name": "tags"},
+      {"name": "frames"}
+    ]
+  },
+  {
+    "name": "com.wiretap.extractor.FrameSummary",
+    "fields": [
+      {"name": "timestamp"},
+      {"name": "direction"},
+      {"name": "protocol"},
+      {"name": "sourcePort"},
+      {"name": "destPort"},
+      {"name": "length"},
+      {"name": "payload"},
+      {"name": "hexDump"}
+    ]
+  }
+]

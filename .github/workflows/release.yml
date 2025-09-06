@@ -26,3 +26,124 @@ jobs:
       run: gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-macos-native:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up GraalVM
+      uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '17'
+        distribution: 'graalvm'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+
+    - name: Build native image for macOS
+      run: |
+        $GRAALVM_HOME/bin/native-image \
+          --no-fallback \
+          --allow-incomplete-classpath \
+          --initialize-at-build-time \
+          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json \
+          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json \
+          -H:+ReportUnsupportedElementsAtRuntime \
+          -H:+PrintClassInitialization \
+          --enable-url-protocols=http,https \
+          -jar target/wiretap-1.0.0.jar \
+          wiretap-macos
+
+    - name: Create macOS app bundle
+      run: |
+        mkdir -p WireTap.app/Contents/MacOS
+        mkdir -p WireTap.app/Contents/Resources
+        cp wiretap-macos WireTap.app/Contents/MacOS/
+        cat > WireTap.app/Contents/Info.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>wiretap-macos</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.wiretap.aol</string>
+            <key>CFBundleName</key>
+            <string>WireTap</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.event.release.tag_name }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ github.event.release.tag_name }}</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleSignature</key>
+            <string>????</string>
+        </dict>
+        </plist>
+        EOF
+
+    - name: Upload macOS executable to Release
+      run: |
+        gh release upload ${{ github.event.release.tag_name }} wiretap-macos
+        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap-macos --clobber
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  build-windows-native:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up GraalVM
+      uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '17'
+        distribution: 'graalvm'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+
+    - name: Build native image for Windows
+      run: |
+        $env:GRAALVM_HOME\bin\native-image.cmd `
+          --no-fallback `
+          --allow-incomplete-classpath `
+          --initialize-at-build-time `
+          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json `
+          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json `
+          -H:+ReportUnsupportedElementsAtRuntime `
+          -H:+PrintClassInitialization `
+          --enable-url-protocols=http,https `
+          -jar target/wiretap-1.0.0.jar `
+          wiretap-windows.exe
+      shell: pwsh
+
+    - name: Upload Windows executable to Release
+      run: gh release upload ${{ github.event.release.tag_name }} wiretap-windows.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
