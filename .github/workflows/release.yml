@@ -1,4 +1,4 @@
-name: Release WireTap JAR
+name: Release WireTap Native
 
 on:
   release:
