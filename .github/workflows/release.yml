@@ -118,8 +118,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Visual Studio Build Tools
-      uses: microsoft/setup-msbuild@v2
+    # Puts MSVC (cl.exe) and Windows SDK on PATH
+    - name: Enable MSVC Build Tools
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
     - name: Set up GraalVM
       uses: graalvm/setup-graalvm@v1
