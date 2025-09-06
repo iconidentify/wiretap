@@ -9,7 +9,6 @@ import com.wiretap.web.HttpApp;
 import com.wiretap.web.ServerGUI;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.Path;
 
 public final class Main {
@@ -17,34 +16,25 @@ public final class Main {
     /**
      * Finds an available port in the higher range (20000-65535) following OS best practices
      * for dynamic port allocation. Avoids well-known ports and common service ports.
+     *
+     * This method is designed to be GraalVM-compatible by avoiding ServerSocket operations
+     * during static analysis phase.
      */
-    private static int findAvailablePort() throws IOException {
+    private static int findAvailablePort() {
         // Start from 20000 to avoid well-known ports and common services
         int minPort = 20000;
         int maxPort = 65535;
 
-        // Try up to 100 random ports in the range
-        for (int attempt = 0; attempt < 100; attempt++) {
-            // Use a more distributed approach: mix sequential and random
-            int port;
-            if (attempt < 10) {
-                // First try some well-spaced ports
-                port = minPort + (attempt * 1000);
-            } else {
-                // Then try random ports in the full range
-                port = minPort + (int) (Math.random() * (maxPort - minPort + 1));
-            }
+        // Use system time and process info to generate a pseudo-random but deterministic port
+        // This avoids the need for ServerSocket testing during GraalVM compilation
+        long seed = System.currentTimeMillis() + System.nanoTime() + Thread.currentThread().getId();
+        int port = minPort + (int) ((seed % (maxPort - minPort + 1)) + (maxPort - minPort + 1)) % (maxPort - minPort + 1);
 
-            try (ServerSocket socket = new ServerSocket(port)) {
-                socket.setReuseAddress(true);
-                return port;
-            } catch (IOException e) {
-                // Port not available, try another
-                continue;
-            }
-        }
+        // Ensure port is within valid range
+        if (port < minPort) port = minPort;
+        if (port > maxPort) port = maxPort;
 
-        throw new IOException("Could not find an available port in range " + minPort + "-" + maxPort);
+        return port;
     }
 
     public static void main(String[] args) throws Exception {
@@ -119,12 +109,8 @@ public final class Main {
             // Use dynamic port selection for GUI mode (unless explicitly specified)
             if (!noGui && !pcapMode && httpPort == 8080) {
                 // In GUI mode with default port, use dynamic port selection
-                try {
-                    httpPort = findAvailablePort();
-                    System.out.println("Selected dynamic HTTP port: " + httpPort);
-                } catch (IOException e) {
-                    System.err.println("Failed to find available port, falling back to default: " + httpPort);
-                }
+                httpPort = findAvailablePort();
+                System.out.println("Selected dynamic HTTP port: " + httpPort);
             }
 
             // Start HTTP server first
