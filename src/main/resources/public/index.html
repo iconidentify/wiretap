@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WireTap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      :root { color-scheme: dark; --primary:#3b82f6; --primary-hover:#2563eb; --secondary:#64748b; --secondary-hover:#475569; --success:#10b981; --warning:#f59e0b; --error:#ef4444; --surface:#1a1a1a; --surface-hover:#2a2a2a; --surface-card:#252525; --text:#ffffff; --text-secondary:#a3a3a3; --border:#404040; --border-hover:#525252; }
+      html, body { height: 100%; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; margin: 0; padding: 0; background: var(--surface); color: var(--text); }
+      header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+      .brand { font-weight: 600; letter-spacing: 0.2px; }
+      main { max-width: 1200px; margin: 0 auto; padding: 24px; min-height: calc(100vh - 80px); display: flex; flex-direction: column; }
+      .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 48px; text-align: center; transition: all .2s ease; background: var(--surface-card); cursor: pointer; }
+      .dropzone:hover { border-color: var(--primary); background: var(--surface-hover); }
+      .dropzone.dragover { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); border-style: solid; }
+      .dz-title { font-size: 18px; margin-bottom: 8px; }
+      .dz-sub { opacity: .8; font-size: 14px; }
+      .controls { margin-top: 16px; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+      .btn.primary { background: var(--primary); color: white; }
+      .btn.primary:hover:not(:disabled) { background: var(--primary-hover); }
+      .btn.danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+      .btn.danger:hover:not(:disabled) { background: #991b1b; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .proxy-controls { display: flex; gap: 8px; align-items: center; }
+      .btn { appearance: none; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.2s ease; }
+      .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--secondary); }
+      .output { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; }
+      .card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; height: 100%; display: flex; flex-direction: column; background: var(--surface-card); }
+      .card header { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-card); }
+      .card pre { margin: 0; padding: 16px 20px; max-height: 480px; overflow: auto; font-size: 13px; line-height: 1.5; background: var(--surface); color: var(--text); }
+      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; }
+      /* Professional JSON syntax highlighting */
+      .hl-key { color: var(--primary); }
+      .hl-string { color: var(--success); }
+      .hl-number { color: var(--warning); }
+      .hl-boolean { color: #7c3aed; }
+      .hl-null { color: var(--secondary); font-style: italic; }
+      .muted { opacity: .7; }
+      .status { font-size: 12px; }
+      /* timeline */
+      .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .toolbar input[type="search"] { inline-size: 260px; max-width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: border-color 0.2s ease; }
+      .toolbar input[type="search"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+      .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+      .frame { position: relative; border: 1px solid var(--border); background: var(--surface-card); border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: all 0.2s ease; }
+      .frame:hover { border-color: var(--border-hover); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+      .frame.c2s { border-left: 4px solid var(--primary); }
+      .frame.s2c { border-left: 4px solid var(--success); }
+      .frame.err { outline: 2px solid var(--error); }
+      .group-header { position: sticky; top: 0; z-index: 5; background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; margin-bottom: 8px; }
+      .pill { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 11px; }
+      .dir-c2s { color: var(--primary); border-color: rgba(37, 99, 235, 0.3); background: rgba(37, 99, 235, 0.1); }
+      .dir-s2c { color: var(--success); border-color: rgba(5, 150, 105, 0.3); background: rgba(5, 150, 105, 0.1); }
+      .prot { color: #0891b2; border-color: rgba(8, 145, 178, 0.3); background: rgba(8, 145, 178, 0.1); }
+      .popover { position: absolute; z-index: 20; right: 12px; top: 12px; max-width: 520px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 12px 16px; display:none; }
+      .popover pre { max-height: 300px; overflow:auto; font-size: 12px; margin:0; background: var(--surface-hover); padding: 8px; border-radius: 4px; }
+      .actions { margin-left: auto; display: inline-flex; gap: 6px; }
+      .iconbtn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 6px 8px; cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
+      .iconbtn:hover { background: var(--surface-hover); border-color: var(--secondary); }
+      .hex { font-family: ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; opacity: .9; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px rgba(255,255,255,0.8); }
+      .timer { opacity: 0.8; }
+      #toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; }
+      .toast { padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 10px 30px rgba(0,0,0,0.1); font-size: 13px; color: var(--text); }
+      .toast.ok { border-color: rgba(5, 150, 105, 0.3); background: rgba(5, 150, 105, 0.05); }
+      .toast.err { border-color: rgba(220, 38, 38, 0.3); background: rgba(220, 38, 38, 0.05); }
+      .tab-group { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+      .tab { padding: 12px 20px; border: 1px solid transparent; border-bottom: none; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.2s ease; }
+      .tab:hover { background: var(--surface-hover); color: var(--text); }
+      .tab.active { border-color: var(--border); border-bottom: 2px solid var(--primary); background: var(--surface); color: var(--primary); font-weight: 600; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      /* Input field styling */
+      input[type="number"], input[type="text"] {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 14px;
+        transition: border-color 0.2s ease;
+      }
+      input[type="number"]:focus, input[type="text"]:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">WireTap</div>
+    </header>
+    <main>
+      <div class="tab-group">
+        <div class="tab active" data-tab="proxy">Live Proxy</div>
+        <div class="tab" data-tab="pcap">PCAP Analyzer</div>
+      </div>
+      <div id="tab-proxy" class="tab-panel active">
+        <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
+          <h3>Proxy Configuration</h3>
+          <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+            Listen: <input id="px-listen" type="number" value="5190" style="width:80px">
+            Dest host: <input id="px-host" type="text" value="127.0.0.1" style="width:140px">
+            Port: <input id="px-port" type="number" value="5190" style="width:80px">
+          </div>
+          <div class="proxy-controls" style="margin-top:12px;">
+            <button id="px-start" class="btn primary" style="min-width: 100px;">▶ Start Proxy</button>
+            <button id="px-stop" class="btn danger" style="min-width: 100px;" disabled>⏹ Stop Proxy</button>
+            <span id="proxy-status" style="font-size: 12px; opacity: 0.7; margin-left: 8px;">Proxy stopped</span>
+          </div>
+        </div>
+      </div>
+      <div id="tab-pcap" class="tab-panel">
+        <div id="dz" class="dropzone">
+          <div class="dz-title">Drop a PCAP or JSONL file here</div>
+          <div class="dz-sub">or click to choose</div>
+          <input id="file" type="file" accept=".pcap,.jsonl,application/vnd.tcpdump.pcap,application/x-ndjson" hidden />
+        </div>
+      </div>
+      <div class="controls toolbar">
+        <button id="pause" class="btn" disabled style="opacity: 0.5;">Pause</button>
+        <button id="clear" class="btn">Clear</button>
+      </div>
+      <section class="output">
+        <div class="card">
+          <header>
+            <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
+            <div class="actions">
+              <button id="exportJsonl" class="iconbtn">Export JSONL</button>
+            </div>
+          </header>
+          <div id="timeline-pcap" class="timeline" style="display:none"></div>
+          <div id="timeline-proxy" class="timeline"></div>
+        </div>
+      </section>
+    </main>
+    <div id="toasts"></div>
+    <script>
+      const dz = document.getElementById('dz');
+      const fileInput = document.getElementById('file');
+      // virtual download link created on demand
+      let downloadLink = null;
+      const timelinePcap = document.getElementById('timeline-pcap');
+      const timelineProxy = document.getElementById('timeline-proxy');
+
+      const pauseBtn = document.getElementById('pause');
+      const clearBtn = document.getElementById('clear');
+
+      const exportJsonlBtn = document.getElementById('exportJsonl');
+      const pxStart = document.getElementById('px-start');
+      const pxStop = document.getElementById('px-stop');
+      const pxListen = document.getElementById('px-listen');
+      const pxHost = document.getElementById('px-host');
+      const pxPort = document.getElementById('px-port');
+      const proxyStatus = document.getElementById('proxy-status');
+      
+      
+      // Proxy configuration persistence and instant detection
+      async function loadProxyConfig() {
+        try {
+          const res = await fetch('/api/proxy-config');
+          if (res.ok) {
+            const config = await res.json();
+            pxListen.value = config.listen || 5190;
+            pxHost.value = config.host || '127.0.0.1';
+            pxPort.value = config.port || 5190;
+          }
+        } catch (e) {
+          console.error('Failed to load proxy configuration:', e);
+        }
+
+        // Immediately check proxy status and start streaming if running
+        console.log('Checking proxy status...');
+        try {
+          const res = await fetch('/api/proxy/status');
+          const status = await res.json();
+          if (status.running) {
+            console.log('Proxy is running, starting live stream immediately...');
+            proxyRunning = true;
+            updateProxyButtons();
+
+            // Load existing session frames
+            console.log('Loading existing session frames...');
+            try {
+              const framesRes = await fetch('/api/session/frames');
+              if (framesRes.ok) {
+                const frames = await framesRes.json();
+                console.log(`Loading ${frames.length} existing session frames...`);
+
+                // Display existing frames
+                for (const frameJson of frames) {
+                  try {
+                    const obj = JSON.parse(frameJson);
+                    const frameData = { obj, raw: frameJson, isLive: false };
+                    activeFrames().push(frameData);
+                    renderFrame(obj, frameJson, document.getElementById('timeline-proxy'));
+                  } catch (e) {
+                    console.warn('Failed to parse session frame:', e);
+                  }
+                }
+
+                if (frames.length > 0) {
+                  toast(`Loaded ${frames.length} frames from current session`, 'ok');
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to load session frames:', err);
+            }
+
+            // Start live streaming immediately without delay
+            startLive();
+          } else {
+            proxyRunning = false;
+            updateProxyButtons();
+          }
+        } catch (err) {
+          console.warn('Failed to check proxy status:', err);
+          proxyRunning = false;
+          updateProxyButtons();
+        }
+      }
+      
+      async function saveProxyConfig() {
+        try {
+          const config = {
+            listen: parseInt(pxListen.value) || 5190,
+            host: pxHost.value || '127.0.0.1',
+            port: parseInt(pxPort.value) || 5190
+          };
+          
+          const res = await fetch('/api/proxy-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+          });
+          
+          if (!res.ok) {
+            console.error('Failed to save proxy configuration');
+          }
+        } catch (e) {
+          console.error('Failed to save proxy configuration:', e);
+        }
+      }
+      
+      function updateProxyButtons() {
+        if (proxyRunning) {
+          pxStart.disabled = true;
+          pxStart.textContent = '▶ Proxy Running';
+          pxStop.disabled = false;
+          pxStop.textContent = '⏹ Stop Proxy';
+          proxyStatus.textContent = 'Proxy running';
+          proxyStatus.style.color = 'var(--ok)';
+        } else {
+          pxStart.disabled = false;
+          pxStart.textContent = '▶ Start Proxy';
+          pxStop.disabled = true;
+          pxStop.textContent = '⏹ Stop Proxy';
+          proxyStatus.textContent = 'Proxy stopped';
+          proxyStatus.style.color = 'currentColor';
+        }
+      }
+
+      function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
+      
+      // Session management functions
+
+      let selectedFile = null;
+      let paused = false;
+      let proxyRunning = false;
+
+      const framesPcap = []; // {obj, raw}
+      const framesProxy = []; // {obj, raw}
+      function isProxyActive() {
+        const t = document.querySelector('.tab.active');
+        return t && t.dataset.tab === 'proxy' && proxyRunning;
+      }
+      function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
+      async function loadJsonlFile(file) {
+        // reset UI
+        document.getElementById('timeline-pcap').innerHTML = '';
+        activeFrames().length = 0;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          const lines = content.split('\n');
+          let lineCount = 0;
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const obj = JSON.parse(line);
+              activeFrames().push({ obj, raw: line });
+              renderFrame(obj, line, document.getElementById('timeline-pcap'));
+              lineCount++;
+            } catch (e) {
+              console.warn('Failed to parse JSON line:', line, e);
+            }
+          }
+
+          document.getElementById('file-type-indicator').textContent = '• JSONL File';
+        };
+
+        reader.onerror = () => {
+        };
+
+        reader.readAsText(file);
+      }
+
+      function setFile(file) {
+        selectedFile = file;
+        if (file) {
+          const fileName = file.name;
+          const fileExt = fileName.toLowerCase().split('.').pop();
+          const isJsonl = fileExt === 'jsonl';
+          const isPcap = fileExt === 'pcap';
+
+          // Update UI based on file type
+          if (isJsonl) {
+            dz.querySelector('.dz-title').textContent = `📄 ${fileName}`;
+            loadJsonlFile(file);
+          } else if (isPcap) {
+            dz.querySelector('.dz-title').textContent = `📦 ${fileName}`;
+            startUpload();
+          } else {
+            dz.querySelector('.dz-title').textContent = `❓ ${fileName}`;
+            return;
+          }
+        } else {
+          dz.querySelector('.dz-title').textContent = 'Drop a PCAP or JSONL file here';
+        }
+      }
+      
+
+      dz.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => setFile(fileInput.files[0]))
+
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault(); dz.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+      });
+
+      function syntaxHighlight(json) {
+        // escape HTML
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // keys
+        json = json.replace(/\"(\\.|[^"\\])*\"(?=\s*:)/g, (m) => `<span class="hl-key">${m}</span>`);
+        // strings
+        json = json.replace(/\"(\\.|[^"\\])*\"(?!\s*:)/g, (m) => `<span class="hl-string">${m}</span>`);
+        // numbers
+        json = json.replace(/\b-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g, (m) => `<span class="hl-number">${m}</span>`);
+        // booleans
+        json = json.replace(/\b(?:true|false)\b/g, (m) => `<span class="hl-boolean">${m}</span>`);
+        // null
+        json = json.replace(/\bnull\b/g, '<span class="hl-null">null</span>');
+        return json;
+      }
+
+      function formatHex(hex) {
+        if (!hex) return '';
+        const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
+        let out = '';
+        for (let i = 0; i < bytes.length; i += 16) {
+          const line = bytes.slice(i, i + 16);
+          let hexPart = '';
+          let ascii = '';
+          for (let j = 0; j < line.length; j++) {
+            const b = parseInt(line[j], 16);
+            hexPart += line[j] + ' ';
+            if (j === 7) hexPart += ' ';
+            ascii += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+          }
+          const missing = 16 - line.length;
+          const padSpaces = missing * 3 + (line.length <= 8 ? 1 : 0);
+          hexPart += ' '.repeat(padSpaces);
+          out += hexPart + ' |' + ascii + '|\n';
+        }
+        return out.trimEnd();
+      }
+
+      function renderFrame(obj, raw, container) {
+        if (paused) return;
+        const el = document.createElement('div');
+        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s') + (obj.hasError ? ' err' : '');
+        const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
+        let tokenMeta = null; // Token metadata removed
+        const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
+        const crcOk = hasCrcField ? !!obj.crcOk : true; // default to OK if missing
+        const crc = crcOk ? 'CRC OK' : 'CRC ERR';
+        const dirTitle = obj.dir === 'S->C' ? 'Server → Client (from host to client)' : 'Client → Server (from client to host)';
+        const crcTitle = crcOk ? 'CRC-16 IBM matches computed value' : 'CRC-16 IBM mismatch (computed != header)';
+        el.innerHTML = `
+          <div class="meta">
+            <span class="pill ${dirPillClass}" title="${dirTitle}">${obj.dir}</span>
+            <span class="pill" title="Token">token: ${obj.token ?? ''}</span>
+            <span class="pill" title="Frame type byte (header[7])">type: ${obj.type ?? ''}</span>
+            <span class="pill" title="Transmitter byte (header[5])">tx: ${obj.tx ?? ''}</span>
+            <span class="pill" title="Receiver byte (header[6])">rx: ${obj.rx ?? ''}</span>
+            <span class="pill" title="Payload length from header">len: ${obj.len ?? ''}</span>
+            <span class="pill ${crcOk ? '' : 'muted'}" title="${crcTitle}">${crc}</span>
+            <span class="pill muted" title="Frame timestamp">ts: ${obj.ts ?? ''}</span>
+            <span class="actions">
+              <button class="iconbtn" data-act="copy-json">Copy JSON</button>
+              <button class="iconbtn" data-act="copy-hex">Copy Hex</button>
+            </span>
+          </div>
+          
+          
+          ${obj.fullHex ? `<div class="hex"></div>` : ''}
+          <div class="popover"><div style="font-weight:600;margin-bottom:6px">${obj.token}</div><pre></pre></div>
+        `;
+        // Set hex as plain text to avoid HTML injection breaking layout
+        if (obj.fullHex) {
+          const hexEl = el.querySelector('.hex');
+          if (hexEl) hexEl.textContent = formatHex(obj.fullHex);
+        }
+        el.addEventListener('click', async (e) => {
+          const target = e.target.closest('[data-act]');
+          if (!target) return;
+          const act = target.getAttribute('data-act');
+          if (act === 'copy-json') {
+            const pretty = JSON.stringify(obj, null, 2);
+            await navigator.clipboard.writeText(pretty);
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy JSON', 800); }
+          } else if (act === 'copy-hex') {
+            await navigator.clipboard.writeText(obj.fullHex || '');
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy Hex', 800); }
+          }
+        });
+        const targetContainer = container || (isProxyActive() ? document.getElementById('timeline-proxy') : document.getElementById('timeline-pcap'));
+        targetContainer.prepend(el);
+      }
+
+
+      function rerenderAll() {
+        document.getElementById('timeline-pcap').innerHTML = '';
+        document.getElementById('timeline-proxy').innerHTML = '';
+        const renderList = (arr, containerId) => {
+          const container = document.getElementById(containerId);
+          for (const f of arr) {
+            renderFrame(f.obj, f.raw, container);
+          }
+        };
+        renderList(framesPcap, 'timeline-pcap');
+        renderList(framesProxy, 'timeline-proxy');
+      }
+
+
+      pauseBtn.addEventListener('click', () => { paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; if (!paused) rerenderAll(); });
+      clearBtn.addEventListener('click', () => {
+        activeFrames().length = 0;
+        rerenderAll();
+        document.getElementById('file-type-indicator').textContent = '';
+        // Reset dropzone title
+        dz.querySelector('.dz-title').textContent = 'Drop a PCAP or JSONL file here';
+        // Reset selected file
+        selectedFile = null;
+      });
+
+      async function startLive(){
+        if (window.es) return; // Already connected
+        console.log('Connecting to live stream...');
+        window.es = new EventSource('/api/live');
+        window.es.onopen = () => {
+          console.log('Live stream connected successfully');
+          toast('Live session active','ok');
+          // Switch to proxy tab if not already there
+          const proxyTab = document.querySelector('[data-tab="proxy"]');
+          if (proxyTab && !proxyTab.classList.contains('active')) {
+            proxyTab.click();
+          }
+        };
+        window.es.onmessage = (ev) => {
+          console.log('Received live frame:', ev.data);
+          try {
+            const obj = JSON.parse(ev.data);
+            const frameData = { obj, raw: ev.data, isLive: true };
+            activeFrames().push(frameData);
+            renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
+          } catch (e) {
+            console.error('Failed to parse live frame:', e, ev.data);
+          }
+        };
+        window.es.onerror = (e) => {
+          console.error('Live stream error:', e);
+          if (window.es) window.es.close();
+          window.es = null;
+          toast('Live session inactive','err');
+
+          // Auto-reconnect if proxy is still running
+          if (proxyRunning) {
+            console.log('Attempting to reconnect live stream in 3 seconds...');
+            setTimeout(() => {
+              if (proxyRunning && !window.es) {
+                console.log('Reconnecting live stream...');
+                startLive();
+              }
+            }, 3000);
+          }
+        };
+      }
+      function stopLive(){
+        if (window.es){
+          window.es.close();
+          window.es = null;
+        }
+      }
+
+      pxStart.addEventListener('click', async () => {
+        if (proxyRunning) return; // Already running
+        const body = new URLSearchParams({ listen: pxListen.value, host: pxHost.value, port: pxPort.value }).toString();
+        const res = await fetch('/api/proxy/start', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        if (res.ok) {
+          proxyRunning = true;
+          localStorage.setItem('proxyRunning', 'true');
+          toast('Proxy started','ok');
+          // Save the proxy configuration
+          await saveProxyConfig();
+          // Update button states
+          updateProxyButtons();
+          // Auto-connect live streaming when proxy starts
+          setTimeout(() => {
+            if (!window.es) {
+              console.log('Auto-connecting live stream...');
+              startLive();
+            }
+          }, 500);
+        } else {
+          toast('Failed to start proxy','err');
+        }
+      });
+      pxStop.addEventListener('click', async () => {
+        if (!proxyRunning) return; // Not running
+        await fetch('/api/proxy/stop', { method: 'POST' });
+        proxyRunning = false;
+        localStorage.setItem('proxyRunning', 'false');
+        stopLive();
+        updateProxyButtons();
+        toast('Proxy stopped');
+      });
+      exportJsonlBtn.addEventListener('click', () => {
+        const lines = [];
+        for (const f of activeFrames()) {
+          lines.push(JSON.stringify(f.obj));
+        }
+        const blob = new Blob([lines.join('\n')+"\n"], { type: 'application/x-ndjson' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'session.summary.jsonl'; a.click();
+        URL.revokeObjectURL(url);
+      });
+
+
+
+      async function startUpload() {
+        if (!selectedFile) return;
+        // reset UI
+        document.getElementById('timeline-pcap').innerHTML = '';
+        activeFrames().length = 0;
+        // create temp download link anchor lazily
+        if (!downloadLink) { downloadLink = document.createElement('a'); downloadLink.style.display='none'; document.body.appendChild(downloadLink); }
+        downloadLink.removeAttribute('href');
+        downloadLink.setAttribute('download', (selectedFile.name || 'session') + '.summary.jsonl');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: selectedFile
+        }).catch((e) => ({ ok: false, statusText: e.message }));
+
+        if (!res || !res.ok || !res.body) {
+          timelinePcap.innerHTML = '';
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const chunks = [];
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lineCount = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          buffer += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+            if (!line) continue;
+            try {
+              const obj = JSON.parse(line);
+              activeFrames().push({ obj, raw: line });
+              renderFrame(obj, line, document.getElementById('timeline-pcap'));
+              lineCount++;
+            } catch (e) {
+              // ignore malformed lines
+            }
+          }
+        }
+        if (buffer) {
+          try {
+            const obj = JSON.parse(buffer);
+            activeFrames().push({ obj, raw: buffer });
+            renderFrame(obj, buffer, document.getElementById('timeline-pcap'));
+            lineCount++;
+          } catch (_) {
+            // ignore leftover text
+          }
+        }
+        const blob = new Blob(chunks, { type: 'application/x-ndjson' });
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        toast(`Successfully processed ${lineCount} frames`, 'ok');
+        document.getElementById('file-type-indicator').textContent = '• PCAP File';
+      }
+
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach(t => t.addEventListener('click', () => {
+        tabs.forEach(tt => tt.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+        // toggle visible timeline
+        const tabName = t.dataset.tab;
+        const timelineProxy = document.getElementById('timeline-proxy');
+        const timelinePcap = document.getElementById('timeline-pcap');
+        
+        if (tabName === 'proxy') {
+          timelineProxy.style.display = '';
+          timelinePcap.style.display = 'none';
+        } else if (tabName === 'pcap') {
+          timelineProxy.style.display = 'none';
+          timelinePcap.style.display = '';
+        }
+      }));
+
+
+
+       
+             // Load proxy configuration on page load
+      loadProxyConfig();
+
+      // Initialize button states
+      updateProxyButtons();
+       
+       // Save proxy configuration when values change
+      pxListen.addEventListener('change', saveProxyConfig);
+      pxHost.addEventListener('change', saveProxyConfig);
+      pxPort.addEventListener('change', saveProxyConfig);
+
+
+      // Periodic proxy status check to keep UI in sync
+      setInterval(() => {
+        if (document.visibilityState === 'visible') { // Only check when page is visible
+          fetch('/api/proxy/status')
+            .then(res => res.json())
+            .then(status => {
+              if (status.running !== proxyRunning) {
+                proxyRunning = status.running;
+                updateProxyButtons();
+                if (!status.running) {
+                  // If proxy stopped unexpectedly, update localStorage
+                  localStorage.setItem('proxyRunning', 'false');
+                  // Stop live stream if it was connected
+                  stopLive();
+                }
+              }
+            })
+            .catch(err => {
+              // If we can't reach the server, assume proxy is stopped
+              if (proxyRunning) {
+                proxyRunning = false;
+                updateProxyButtons();
+                localStorage.setItem('proxyRunning', 'false');
+                stopLive();
+              }
+            });
+
+            // Also check live stream health and reconnect if needed
+            if (proxyRunning && !window.es) {
+              console.log('Live stream not connected, attempting to reconnect...');
+              startLive();
+            }
+        }
+      }, 5000); // Check every 5 seconds
+
+    </script>
+  </body>
+  </html>

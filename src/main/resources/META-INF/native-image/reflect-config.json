@@ -1,0 +1,78 @@
+[
+  {
+    "name": "com.wiretap.Main",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "main",
+        "parameterTypes": ["java.lang.String[]"]
+      }
+    ]
+  },
+  {
+    "name": "com.wiretap.web.HttpApp",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": ["int", "int"]
+      },
+      {
+        "name": "start",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.wiretap.extractor.FrameSummary",
+    "fields": [
+      {"name": "dir"},
+      {"name": "ts"},
+      {"name": "token"},
+      {"name": "type"},
+      {"name": "tx"},
+      {"name": "rx"},
+      {"name": "len"},
+      {"name": "crcOk"},
+      {"name": "atoms"},
+      {"name": "preview"},
+      {"name": "fullHex"},
+      {"name": "ref"},
+      {"name": "protocolTag"},
+      {"name": "tokenName"},
+      {"name": "tokenDesc"},
+      {"name": "docRef"},
+      {"name": "payloadHex"},
+      {"name": "payloadText"},
+      {"name": "hasError"},
+      {"name": "errorCodes"}
+    ]
+  },
+  {
+    "name": "com.wiretap.web.ServerGUI",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": ["int", "int"]
+      },
+      {
+        "name": "show",
+        "parameterTypes": []
+      },
+      {
+        "name": "waitForClose",
+        "parameterTypes": []
+      },
+      {
+        "name": "shutdown",
+        "parameterTypes": []
+      },
+      {
+        "name": "updateProxyStatus",
+        "parameterTypes": ["boolean", "java.lang.String"]
+      }
+    ]
+  }
+]

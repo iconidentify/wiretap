@@ -1,0 +1,253 @@
+Tokens
+by Tau
+Tokens are used to access any area on AOL. Tokens are two bytes are have one of three things that accompany it.
+
+Nothing. These tokens are sent raw, meaning it has no argument. For example, the TM token has no argument. This token brings up the Online Clock which can normally be accessed via My AOL > Online Clock.
+
+To access any raw token you need save the following text stream onto your hard drive then run it via Play Text Stream in the Star Tool:
+
+uni_start_stream
+sm_send_token_raw <"token">
+uni_end_stream
+
+A value. These tokens are sent along with a value. The value will determine what window is brought up when the token is sent. For example, the token nx sent with the argument 1 starts the create screen name process. However, nx send along with 2 begins the delete screen name process. Note these are appreviated nx 1 and nx 2.
+
+AOL usues a special algorithm to make abbreviate value arguments. Take f1 2103270 for example. Using the algorithm which BMB explains on his Global ID's tutorial, 2103270 can be converted to 32-6118. Therefore, f1 2103270 and f1 32-6118 are identical.
+
+To access any token along with a value save the following text stream onto your hard drive then run it via Play Text Stream in the Star Tool
+
+uni_start_stream
+sm_m_send_token_arg <"token", arg>
+uni_end_stream
+Replace the token with the token you wish to send and arg with its argument.
+
+A string. These tokens are sent along with a string that you input somewhere on the form that sends the token. For example, the Ln token, which is the locate member token, is sent with a screen name that was inputed on the Locate Member Online form. AOL sends the all the content of the form when OK is clicked using the de_ez_send_form atom. This is unconvenient though, because this will only work if the entire form is recreated. To send the token Ln along with a string is more complicated then sending it with a value. The string needs to be in hex. Using my Hex Converter program strings can easily be converted into their hex format. Using the following method is how to send a token along with a string via FDO:
+
+uni_start_stream
+buf_start_buffer <9fx>
+buf_set_token <"token">
+buf_add_atom_data <string in hex format>
+buf_close_buffer
+uni_end_stream
+
+Therefore, to locate Steve Case you would replace the token with Ln. Using the hex converter I converted Steve Case to 53x, 74x, 65x, 76x, 65x, 20x, 43x, 61x, 73x, 65x Replace string in hex format with this data. Now run it via the Star Tool.
+
+Token Sequences
+Some tokens can only be accessed by sending a specific series of tokens before it. For example, the nx 1 token which begins the create screen name process will not do anything until the name process has been initiated by the nY token. Sending nx 1 without sending nY will not do anything. This is true with many tokens.
+
+
+
+
+Mail:  Username:
+  Password:
+ SubmitSubmit   Help | Sign Up
+Search:
+ SubmitSubmit
+
+
+
+FDO Tutorial: Lesson 2
+by Tau
+In this tutorial the basics of designing forms will be taught. First off, every action, including creating forms begins with the atom uni_start_stream. Next comes the properties of a form. Below are few of the properties that a form can have. All of the following atoms are descriped in the atom database.
+
+mat_orientation <Argument> - describes the shape of the objects width relavitve to its height. We are just going to use "vff" for now because there are so many.
+mat_color_face <R, G, B> - sets the background color of the form.
+mat_bool_background_flood <Yes or No> - This must be Yes in order for mat_color_face to take effect.
+mat_position <Argument> - controls where the form is when it loads. First part of the argument is the row it is in. It is either top, center, or bottom. This is followed by an underscore (_) then left, center, or right. So if you wanted the form to start in the middle of the screen and at the top you would use top_center.
+mat_bool_resize_vertical <Yes or No> - controls whether the form can be resized. If either the atom mat_bool_resize_horizontal or this is No then the form will not have a maximize button.
+mat_precise_width <#> - Determines the width of a form measured in pixels. mat_bool_precise must be Yes.
+mat_precise_height <#> - Determines the height of a form measured in pixels. mat_bool_precise must be Yes.
+mat_precise_x <#> - Controls where the form starts. If the number is 0 then it will be 0 pixels across from the top left corner of AOL and down however many units specified in mat_precise_y.
+mat_precise_y <#> - Controls where the form starts. If the number is 0 then it will be 0 pixels down from the top left corner of AOL and acrosss however many units specified in mat_precise_x.
+mat_bool_precise <Yes or No> - Determines whether the form is the exact width and height as specified above.
+mat_art_id <id> - If mat_bool_background_pic is Yes then the form will have a picture background wit the specified id.
+mat_bool_background_pic <Yes or No> - Determines whether the form has a background image defined by mat_art_id.
+Every window also has a name. The name for a form is ind_group. The code to start a form is as follows:
+
+man_start_object <ind_group, "caption">
+
+Where caption is the form's caption.
+
+Example #1
+Now to combine everything that has just been explained. Save the following FDO stream and play it using the methods explained in Lesson 1.
+
+uni_start_stream
+	man_start_object <ind_group, "Test - Lesson2">
+		mat_orientation <vff>
+		mat_position <center_center>
+		mat_bool_resize_vertical <no>
+		mat_precise_width <300>
+		mat_precise_height <150>
+		mat_bool_precise <yes>
+		mat_art_id <1-1-40898>
+		mat_bool_background_pic <yes>
+	man_end_object
+	man_update_display
+uni_end_stream
+Will result in:
+
+
+Example #2
+ uni_start_stream
+	man_start_object <ind_group, "Test - Lesson2 b">
+		mat_orientation <vff>
+		mat_position <top_center>
+		mat_bool_resize_vertical <yes>
+		mat_color_face <0, 102, 153>
+		mat_bool_background_flood <yes>
+		mat_precise_width <400>
+		mat_precise_height <100>
+		mat_bool_precise <yes>
+      man_end_object
+    man_update_display
+uni_end_stream
+Will result in:
+
+FDO Tutorial: Lesson 3 - Buttons
+by Tau
+This lesson will show how buttons can be placed on forms along with and how you can use atom properties to customize the buttons.
+
+The form we will be using throught this lesson is the one that was made in the last lesson. The code is shown below.
+
+uni_start_stream
+	man_start_object <ind_group, "Test - Lesson3">
+		mat_orientation <vff>
+		mat_position <center_center>
+		mat_bool_resize_vertical <no>
+		mat_precise_width <300>
+		mat_precise_height <150>
+		mat_bool_precise <yes>
+		mat_art_id <1-1-40898>
+		mat_bool_background_pic <yes>
+	man_end_object
+	man_update_display
+uni_end_stream
+Adding a Button
+To place the first object on the form you add the following atom after the form properties:
+man_start_object <class, "Caption">
+
+Note that this is only for one object on the form, additional objects require a different atom.
+
+So to add a command button to this form with the caption of "Test" the following code would be used:
+uni_start_stream
+	man_start_object <ind_group, "Test - Lesson2">
+		mat_orientation <vff>
+		mat_position <center_center>
+		mat_bool_resize_vertical <no>
+		mat_precise_width <300>
+		mat_precise_height <150>
+		mat_bool_precise <yes>
+		mat_art_id <1-1-40898>
+		mat_bool_background_pic <yes>
+		man_start_object <trigger, "Test">
+	man_end_object
+	man_update_display
+uni_end_stream
+Note that "trigger" is the class name for buttons. This alone will not do anything though. It would be like drawing a picture without knowing what to draw, what size, shapes, colors, and everything else. So the properties need to be added.
+
+Setting the Properties
+Properties for the button follow the man_start_object and for easy reading it is indented one more space.
+
+mat_bool_default <Yes or No> - Determines if the button is default. If it is, then when enter is pressed on the form the button will be activated.
+mat_trigger_style <rectangle> - Makes the button a rectangle.
+mat_font_sis <font, size, attributes> - This determines the properties of the caption of the button. Font is the font that the button will have, size is the size of the caption text, and attributes can be normal, bold, italic, or underline
+mat_color_face <R, G, B> - Sets the background color of the button in RGB format. Values can be 0 to 255 for each. RGB values can be found here.
+mat_color_text <R, G, B> - Sets the color of the caption in RGB format. Values can be 0 to 255 for each. RGB values can be found here.
+mat_color_top_edge <R, G, B> - Sets the color of the top edge in RGB format. Values can be 0 to 255 for each. RGB values can be found here.
+mat_color_bottom_edge <R, G, B> - Sets the color of the bottom edge in RGB format. Values can be 0 to 255 for each. RGB values can be found here.
+mat_horizontal_spacing <#> - Sets the spacing between the button and the object above it.
+mat_precise_width <#> - Sets the width of the button in pixels.
+mat_precise_height <#> - Sets the height of the button in pixels.
+mat_precise_x <#> - Sets the vertical distance from the top of the form that the bottom will be.
+mat_precise_y <#> - Sets the horizontal distance from the left of the form that the button will be.
+mat_art_hint_title <"caption"> - This is a preview of the button that will appear while it is loading. It will only be viewable for a short amount of time, if at all depending on how quickly the form loads
+mat_art_id <id> - This will set the picture of the button. id is the art record of the picture.
+mat_font_size <#> - Sets the font size of the button if mat_font_sis is not being used.
+mat_context_help <"caption"> - Sets the text seen when the mouse is moved over the button.
+mat_relative_tag <#> - Sets the buttons relative ID which will be explained in a later lesson.
+The following code is for a single button to be placed in the bottom right corner of the form. Using the properties above and with some of your own testing you can easily master designing buttons. Quite a talent, eh?
+
+uni_start_stream
+	man_start_object <ind_group, "Test - Lesson3">
+		mat_orientation <vff>
+		mat_position <center_center>
+		mat_bool_resize_vertical <no>
+		mat_precise_width <300>
+		mat_precise_height <150>
+		mat_bool_precise <yes>
+		mat_art_id <1-1-40898>
+		mat_bool_background_pic <yes>
+		man_start_object <trigger, "Test">
+		      mat_context_help <"Click here!">
+		      mat_trigger_style <rectangle>
+		      mat_bool_precise <yes>
+		      mat_precise_width <70>
+		      mat_precise_height <24>
+		      mat_precise_x <220>
+		      mat_precise_y <120>
+		      mat_font_sis <arial, 8, normal>
+		      mat_color_face <0, 109, 170>
+		      mat_color_text <255, 255, 255>
+		      mat_color_top_edge <145, 182, 255>
+		      mat_color_bottom_edge <1, 1, 1>
+		man_end_object
+	man_end_object
+	man_update_display
+uni_end_stream
+This will result in:
+
+
+mat_end_object is placed after all the properties of the button to show that you are done setting its properties.
+
+Infinite amount of designs can be made with this code.
+
+While designing your own forms you can look at the Atomc Debugger FDO stream. Search for "trigger" in the FDO stream and look at the code for other buttons. Most are made using the properties above.
+
+Actions
+What fun is a button that cannot do anthing? Add the following code after the last property of the button:
+
+act_replace_select_action
+       <
+       uni_start_stream
+       code
+       uni_end_stream
+       >
+code can be many things. For example, if you want to make a message box saying, "Hey! This is my first button test!" then you could replace code with: async_alert <info, "Hey! This is my first button test!">
+
+Another simple thing you do is send token arguments. Replace code with: sm_send_token_arg <"L1", 28> and it would take you to the Enter Private Chat form.
+
+Putting it all together
+uni_start_stream
+	man_start_object <ind_group, "Test - Lesson3">
+		mat_orientation <vff>
+		mat_position <center_center>
+		mat_bool_resize_vertical <no>
+		mat_precise_width <300>
+		mat_precise_height <150>
+		mat_bool_precise <yes>
+		mat_art_id <1-1-40898>
+		mat_bool_background_pic <yes>
+		man_start_object <trigger, "Test">
+		      mat_context_help <"Click here!">
+		      mat_trigger_style <rectangle>
+		      mat_bool_precise <yes>
+		      mat_precise_width <70>
+		      mat_precise_height <24>
+		      mat_precise_x <220>
+		      mat_precise_y <120>
+		      mat_font_sis <arial, 8, normal>
+		      mat_color_face <0, 109, 170>
+		      mat_color_text <255, 255, 255>
+		      mat_color_top_edge <145, 182, 255>
+		      mat_color_bottom_edge <1, 1, 1>
+		      act_replace_select_action
+			<
+			uni_start_stream
+			sm_send_token_arg <"L1", 28>
+			uni_end_stream
+			>
+		man_end_object
+	man_end_object
+	man_update_display
+Simple, right? Well mess with it, you'll get it eventually. ;)
+
