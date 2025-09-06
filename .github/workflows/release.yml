@@ -68,6 +68,11 @@ jobs:
           -H:+AddAllCharsets \
           --enable-http \
           --enable-https \
+          --initialize-at-run-time=sun.java2d.metal.MTLRenderQueue \
+          --initialize-at-run-time=sun.java2d.opengl.OGLRenderQueue \
+          --initialize-at-run-time=sun.lwawt.macosx.LWCToolkit \
+          --initialize-at-run-time=javax.swing.UIManager \
+          -H:-UseServiceLoaderFeature \
           -jar target/wiretap-1.0.0.jar \
           wiretap-macos
 
@@ -149,6 +154,11 @@ jobs:
           -H:+AddAllCharsets `
           --enable-http `
           --enable-https `
+          --initialize-at-run-time=sun.java2d.d3d.D3DRenderQueue `
+          --initialize-at-run-time=sun.java2d.opengl.WGLGraphicsConfig `
+          --initialize-at-run-time=sun.awt.windows.WToolkit `
+          --initialize-at-run-time=javax.swing.UIManager `
+          -H:-UseServiceLoaderFeature `
           -jar target/wiretap-1.0.0.jar `
           wiretap-windows
       shell: pwsh

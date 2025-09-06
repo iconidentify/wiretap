@@ -121,9 +121,17 @@
   {
     "name": "javax.swing.JTextField",
     "methods": [
+      {"name": "<init>", "parameterTypes": []},
       {"name": "<init>", "parameterTypes": ["int"]},
+      {"name": "<init>", "parameterTypes": ["java.lang.String"]},
+      {"name": "<init>", "parameterTypes": ["java.lang.String", "int"]},
       {"name": "getText", "parameterTypes": []},
-      {"name": "setText", "parameterTypes": ["java.lang.String"]}
+      {"name": "setText", "parameterTypes": ["java.lang.String"]},
+      {"name": "setColumns", "parameterTypes": ["int"]},
+      {"name": "getColumns", "parameterTypes": []},
+      {"name": "addActionListener", "parameterTypes": ["java.awt.event.ActionListener"]},
+      {"name": "setEditable", "parameterTypes": ["boolean"]},
+      {"name": "setEnabled", "parameterTypes": ["boolean"]}
     ]
   },
   {
