@@ -9,6 +9,9 @@
 # - GraalVM CE 17 installed at /Library/Java/JavaVirtualMachines/graalvm-ce-java17-22.3.1/Contents/Home
 # - macOS with ARM64 (Apple Silicon)
 #
+# Note: The script explicitly passes environment variables to Maven/GluonFX
+# to ensure compatibility across different terminal environments (including IntelliJ).
+#
 # Output:
 # - target/gluonfx/aarch64-darwin/WireTap (native executable)
 # - WireTap.app/ (macOS app bundle)
@@ -18,6 +21,7 @@
 # - Automatic quarantine removal (xattr -c)
 # - Clean builds every time
 # - Colored output with progress tracking
+# - IntelliJ terminal compatibility
 
 set -e  # Exit on any error
 
@@ -59,11 +63,13 @@ check_graalvm() {
     if [ ! -d "$GRAALVM_HOME" ]; then
         print_error "GraalVM not found at $GRAALVM_HOME"
         print_error "Please install GraalVM CE 17 from https://github.com/graalvm/graalvm-ce-builds/releases"
+        print_error "Or update GRAALVM_HOME in this script to match your installation path"
         exit 1
     fi
 
     export JAVA_HOME="$GRAALVM_HOME"
     export PATH="$JAVA_HOME/bin:$PATH"
+    export GRAALVM_HOME="$GRAALVM_HOME"
 
     java -version
     print_success "GraalVM found and configured"
@@ -113,8 +119,11 @@ build_native() {
     # Start timing
     start_time=$(date +%s)
 
-    # Build with GluonFX
-    mvn gluonfx:build \
+    # Ensure GRAALVM_HOME is set for Maven/GluonFX
+    export GRAALVM_HOME="$GRAALVM_HOME"
+
+    # Build with GluonFX - explicitly pass environment variables
+    GRAALVM_HOME="$GRAALVM_HOME" JAVA_HOME="$JAVA_HOME" PATH="$PATH" mvn gluonfx:build \
         -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath" \
         -Dgluonfx.macos.codesign=false
 
