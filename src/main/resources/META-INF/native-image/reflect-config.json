@@ -114,8 +114,11 @@
   {
     "name": "javax.swing.JButton",
     "methods": [
+      {"name": "<init>", "parameterTypes": []},
       {"name": "<init>", "parameterTypes": ["java.lang.String"]},
-      {"name": "addActionListener", "parameterTypes": ["java.awt.event.ActionListener"]}
+      {"name": "addActionListener", "parameterTypes": ["java.awt.event.ActionListener"]},
+      {"name": "setEnabled", "parameterTypes": ["boolean"]},
+      {"name": "setVisible", "parameterTypes": ["boolean"]}
     ]
   },
   {
