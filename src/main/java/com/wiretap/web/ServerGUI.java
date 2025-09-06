@@ -17,6 +17,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyCode;
+import javafx.beans.binding.Bindings;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,7 +64,8 @@ public class ServerGUI extends Application {
     private TextField proxyHostField;
     private TextField proxyPortField;
     private Button proxyToggleButton;
-    private Button openWebButton;
+    private Button liveProxyButton;
+    private Button pcapAnalyzerButton;
 
     // Status display components for dynamic updates
     private Label framesValueLabel;
@@ -105,10 +107,7 @@ public class ServerGUI extends Application {
         startUpdateTimer();
 
         // Keyboard shortcuts
-        scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN),
-            this::openWebInterface
-        );
+        // Toggle Start/Stop
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN),
             () -> {
@@ -117,7 +116,19 @@ public class ServerGUI extends Application {
                 }
             }
         );
+        // Live tab
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.L, KeyCombination.SHORTCUT_DOWN),
+            () -> openWebInterface("live")
+        );
+        // PCAP tab
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN),
+            () -> openWebInterface("pcap")
+        );
 
+        // Show tightly sized to content (removes extra bottom whitespace)
+        this.primaryStage.sizeToScene();
         this.primaryStage.show();
     }
 
@@ -154,12 +165,17 @@ public class ServerGUI extends Application {
         VBox proxyCard = createProxyControlCard(primaryColor, cardColor);
         content.getChildren().add(proxyCard);
 
-        ScrollPane scrollPane = new ScrollPane(content);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: " + toHex(backgroundColor) + ";");
-        root.setCenter(scrollPane);
+        // Put content directly in center to avoid extra blank area under short content
+        root.setCenter(content);
 
-        return new Scene(root, 500, 600);
+        // Create a scene that will size to its content; width slightly increased for input comfort
+        Scene scene = new Scene(root);
+        // Provide sensible minimums
+        root.minWidthProperty().bind(Bindings.createDoubleBinding(
+            () -> 560.0, root.widthProperty()));
+        root.minHeightProperty().bind(Bindings.createDoubleBinding(
+            () -> 520.0, root.heightProperty()));
+        return scene;
     }
 
     private HBox createHeader(Color primaryColor, Color successColor) {
@@ -333,25 +349,48 @@ public class ServerGUI extends Application {
         });
         proxyToggleButton.setTooltip(new Tooltip("Start/Stop the AOL proxy (⌘/Ctrl+S)"));
 
-        // Secondary action: Open Web UI
-        openWebButton = new Button("🌐 Open Web Interface");
-        openWebButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
-        openWebButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
-        openWebButton.setOnAction(e -> openWebInterface());
-        openWebButton.setTooltip(new Tooltip("Open the WireTap Web UI (⌘/Ctrl+O)"));
+        // Secondary actions: Live Proxy + PCAP Analyzer (open specific tabs)
+        liveProxyButton = new Button("🌐 Live Proxy");
+        liveProxyButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
+        liveProxyButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        liveProxyButton.setOnAction(e -> openWebInterface("live"));
+        liveProxyButton.setTooltip(new Tooltip("Open Web UI on Live Proxy tab (⌘/Ctrl+L)"));
 
-        buttonBox.getChildren().addAll(proxyStatusLed, proxyToggleButton, openWebButton);
+        pcapAnalyzerButton = new Button("🧪 PCAP Analyzer");
+        pcapAnalyzerButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
+        pcapAnalyzerButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        pcapAnalyzerButton.setOnAction(e -> openWebInterface("pcap"));
+        pcapAnalyzerButton.setTooltip(new Tooltip("Open Web UI on PCAP Analyzer tab (⌘/Ctrl+P)"));
+
+        // Small spacer between primary toggle and secondary tool buttons
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.NEVER);
+
+        buttonBox.getChildren().addAll(proxyStatusLed, proxyToggleButton, spacer, liveProxyButton, pcapAnalyzerButton);
 
         return buttonBox;
     }
 
 
 
-    private void openWebInterface() {
+    private void openWebInterface(String tabKey) {
         try {
             // Use JavaFX HostServices instead of AWT Desktop for native image compatibility
             int actualHttpPort = httpApp != null ? httpApp.getHttpPort() : httpPort;
             String url = "http://localhost:" + actualHttpPort;
+            // Tab routing hint: use hash fragments (preferred by SPAs) or fall back to query param
+            if (tabKey != null) {
+                switch (tabKey) {
+                    case "live":
+                        url += "#/live";
+                        break;
+                    case "pcap":
+                        url += "#/pcap";
+                        break;
+                    default:
+                        // leave as root
+                }
+            }
             // Use the inherited getHostServices() method from Application
             if (getHostServices() != null) {
                 getHostServices().showDocument(url);
@@ -580,7 +619,7 @@ public class ServerGUI extends Application {
                 }
             }
 
-            // Refresh the status card to show updated proxy port
+            // Refresh the status card to show updated proxy port / state
             refreshStatusCard();
         });
     }
