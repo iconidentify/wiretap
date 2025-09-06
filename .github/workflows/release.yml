@@ -90,8 +90,8 @@ jobs:
 
     - name: Upload macOS executable to Release
       run: |
-        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap --clobber
-        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap --clobber
+        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap && gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap)
+        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap && gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap)
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -125,6 +125,6 @@ jobs:
       run: mvn gluonfx:build gluonfx:package
 
     - name: Upload Windows executable to Release
-      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe --clobber
+      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap.exe && gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe)
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
