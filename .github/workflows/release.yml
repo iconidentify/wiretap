@@ -71,12 +71,6 @@ jobs:
           --initialize-at-run-time=javax.swing \
           --initialize-at-run-time=java.awt \
           --initialize-at-run-time=sun.awt \
-          --delay-class-initialization-to-runtime=javax.swing.UIManager \
-          --delay-class-initialization-to-runtime=java.awt.Toolkit \
-          -H:-UseServiceLoaderFeature \
-          -H:+AllowJRTFileSystem \
-          --enable-monitoring=jvmstat \
-          --no-server \
           -jar target/wiretap-1.0.0.jar \
           wiretap-macos
 
@@ -143,32 +137,26 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Build native image for Windows
+      shell: cmd
       run: |
-        & "$env:GRAALVM_HOME\bin\native-image.cmd" `
-          --no-fallback `
-          --initialize-at-build-time `
-          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json `
-          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json `
-          -H:+ReportUnsupportedElementsAtRuntime `
-          -H:+PrintClassInitialization `
-          --enable-url-protocols=http,https `
-          -Djava.awt.headless=false `
-          -H:+AddAllCharsets `
-          --enable-http `
-          --enable-https `
-          --initialize-at-run-time=sun.java2d `
-          --initialize-at-run-time=sun.awt `
-          --initialize-at-run-time=javax.swing `
-          --initialize-at-run-time=java.awt `
-          --delay-class-initialization-to-runtime=javax.swing.UIManager `
-          --delay-class-initialization-to-runtime=java.awt.Toolkit `
-          -H:-UseServiceLoaderFeature `
-          -H:+AllowJRTFileSystem `
-          --enable-monitoring=jvmstat `
-          --no-server `
-          -jar target/wiretap-1.0.0.jar `
-          "wiretap-windows"
-      shell: pwsh
+        "%GRAALVM_HOME%\bin\native-image.cmd" ^
+          --no-fallback ^
+          --initialize-at-build-time ^
+          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json ^
+          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json ^
+          -H:+ReportUnsupportedElementsAtRuntime ^
+          -H:+PrintClassInitialization ^
+          --enable-url-protocols=http,https ^
+          -Djava.awt.headless=false ^
+          -H:+AddAllCharsets ^
+          --enable-http ^
+          --enable-https ^
+          --initialize-at-run-time=sun.java2d ^
+          --initialize-at-run-time=sun.awt ^
+          --initialize-at-run-time=javax.swing ^
+          --initialize-at-run-time=java.awt ^
+          -jar target/wiretap-1.0.0.jar ^
+          wiretap-windows.exe
 
     - name: Upload Windows executable to Release
       run: gh release upload ${{ github.event.release.tag_name }} wiretap-windows.exe
