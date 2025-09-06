@@ -14,6 +14,10 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.scene.effect.DropShadow;
 
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyCode;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.io.FileInputStream;
@@ -58,8 +62,8 @@ public class ServerGUI extends Application {
     private TextField proxyListenField;
     private TextField proxyHostField;
     private TextField proxyPortField;
-    private Button startProxyButton;
-    private Button stopProxyButton;
+    private Button proxyToggleButton;
+    private Button openWebButton;
 
     // Status display components for dynamic updates
     private Label framesValueLabel;
@@ -90,7 +94,8 @@ public class ServerGUI extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         this.primaryStage.setTitle("WireTap - AOL Protocol Analyzer");
-        this.primaryStage.setScene(createScene());
+        Scene scene = createScene();
+        this.primaryStage.setScene(scene);
         this.primaryStage.setOnCloseRequest(e -> shutdown());
 
         // Set the HttpApp reference from the static variable
@@ -98,6 +103,20 @@ public class ServerGUI extends Application {
 
         // Start the update timer for dynamic status updates
         startUpdateTimer();
+
+        // Keyboard shortcuts
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN),
+            this::openWebInterface
+        );
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN),
+            () -> {
+                if (proxyToggleButton != null && !proxyToggleButton.isDisabled()) {
+                    proxyToggleButton.fire();
+                }
+            }
+        );
 
         this.primaryStage.show();
     }
@@ -139,10 +158,6 @@ public class ServerGUI extends Application {
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background-color: " + toHex(backgroundColor) + ";");
         root.setCenter(scrollPane);
-
-        // Footer - Modern action button
-        HBox footer = createFooter(primaryColor);
-        root.setBottom(footer);
 
         return new Scene(root, 500, 600);
     }
@@ -214,7 +229,7 @@ public class ServerGUI extends Application {
         HBox row = new HBox(12);
         row.setAlignment(Pos.CENTER_LEFT);
 
-        Circle indicator = new Circle(4);
+        Circle indicator = new Circle(5);
         indicator.setFill(indicatorColor);
 
         Label titleLabel = new Label(title);
@@ -224,7 +239,7 @@ public class ServerGUI extends Application {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Label valueLabel = new Label(value);
-        valueLabel.setFont(Font.font("System", 12));
+        valueLabel.setFont(Font.font("System", 13));
         valueLabel.setTextFill(Color.web("#757575"));
 
         // Store reference to frames counter label
@@ -257,6 +272,7 @@ public class ServerGUI extends Application {
         proxyHostField = new TextField(loadPreference("proxy.host", "127.0.0.1"));
         proxyHostField.setPromptText("Host");
         proxyHostField.setPrefWidth(120);
+        proxyHostField.setTooltip(new Tooltip("The host where WireTap forwards AOL traffic (e.g., 127.0.0.1)"));
 
         Label colonLabel = new Label(":");
         colonLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
@@ -264,6 +280,7 @@ public class ServerGUI extends Application {
         proxyPortField = new TextField(loadPreference("proxy.destination.port", "5190"));
         proxyPortField.setPromptText("Port");
         proxyPortField.setPrefWidth(80);
+        proxyPortField.setTooltip(new Tooltip("Destination port (1–65535)"));
 
         destGrid.add(destLabel, 0, 0);
         destGrid.add(proxyHostField, 1, 0);
@@ -281,19 +298,20 @@ public class ServerGUI extends Application {
         proxyListenField = new TextField(loadPreference("proxy.listen.port", "5132"));
         proxyListenField.setPromptText("Port");
         proxyListenField.setPrefWidth(120);
+        proxyListenField.setTooltip(new Tooltip("Local port WireTap will listen on (1–65535)"));
 
         listenGrid.add(listenLabel, 0, 0);
         listenGrid.add(proxyListenField, 1, 0);
 
         // Control buttons
-        HBox buttonBox = createControlButtons(primaryColor);
+        HBox buttonBox = createControlRow(primaryColor);
 
         card.getChildren().addAll(cardTitle, new Separator(), destGrid, listenGrid, buttonBox);
 
         return card;
     }
 
-    private HBox createControlButtons(Color primaryColor) {
+    private HBox createControlRow(Color primaryColor) {
         HBox buttonBox = new HBox(12);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -301,44 +319,33 @@ public class ServerGUI extends Application {
         proxyStatusLed = new Circle(6);
         proxyStatusLed.setFill(Color.web("#9E9E9E")); // Gray when stopped
 
-        // Start button
-        startProxyButton = new Button("▶ Start Proxy");
-        startProxyButton.setStyle("-fx-background-color: " + toHex(primaryColor) + "; -fx-text-fill: white; -fx-background-radius: 4;");
-        startProxyButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
-        startProxyButton.setPrefWidth(120);
-        startProxyButton.setOnAction(e -> startProxy());
+        // Primary toggle (single source of truth for state)
+        proxyToggleButton = new Button("▶ Start Proxy");
+        proxyToggleButton.setStyle("-fx-background-color: " + toHex(primaryColor) + "; -fx-text-fill: white; -fx-background-radius: 8;");
+        proxyToggleButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        proxyToggleButton.setPrefWidth(140);
+        proxyToggleButton.setOnAction(e -> {
+            if (proxyToggleButton.getText().startsWith("▶")) {
+                startProxy();
+            } else {
+                stopProxy();
+            }
+        });
+        proxyToggleButton.setTooltip(new Tooltip("Start/Stop the AOL proxy (⌘/Ctrl+S)"));
 
-        // Stop button
-        stopProxyButton = new Button("⏹ Stop Proxy");
-        stopProxyButton.setStyle("-fx-background-color: #757575; -fx-text-fill: white; -fx-background-radius: 4;");
-        stopProxyButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
-        stopProxyButton.setPrefWidth(120);
-        stopProxyButton.setDisable(true);
-        stopProxyButton.setOnAction(e -> stopProxy());
+        // Secondary action: Open Web UI
+        openWebButton = new Button("🌐 Open Web Interface");
+        openWebButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: " + toHex(primaryColor) + "; -fx-background-radius: 8;");
+        openWebButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        openWebButton.setOnAction(e -> openWebInterface());
+        openWebButton.setTooltip(new Tooltip("Open the WireTap Web UI (⌘/Ctrl+O)"));
 
-        buttonBox.getChildren().addAll(proxyStatusLed, startProxyButton, stopProxyButton);
+        buttonBox.getChildren().addAll(proxyStatusLed, proxyToggleButton, openWebButton);
 
         return buttonBox;
     }
 
 
-    private HBox createFooter(Color primaryColor) {
-        HBox footer = new HBox();
-        footer.setPadding(new Insets(16));
-        footer.setStyle("-fx-background-color: #E0E0E0;");
-        footer.setAlignment(Pos.CENTER);
-
-        Button openBrowserButton = new Button("🌐 Open Web Interface");
-        openBrowserButton.setStyle("-fx-background-color: " + toHex(primaryColor) + "; -fx-text-fill: white; -fx-background-radius: 6;");
-        openBrowserButton.setFont(Font.font("System", FontWeight.BOLD, 14));
-        openBrowserButton.setPrefWidth(200);
-        openBrowserButton.setPrefHeight(40);
-        openBrowserButton.setOnAction(e -> openWebInterface());
-
-        footer.getChildren().add(openBrowserButton);
-
-        return footer;
-    }
 
     private void openWebInterface() {
         try {
@@ -508,6 +515,10 @@ public class ServerGUI extends Application {
         try {
             int listenPort = Integer.parseInt(listenPortText);
             int port = Integer.parseInt(portText);
+            if (!isValidPort(listenPort) || !isValidPort(port)) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Port", "Ports must be in the range 1–65535.");
+                return;
+            }
             if (httpApp != null) {
                 boolean success = httpApp.startProxy(listenPort, host, port);
                 if (success) {
@@ -538,8 +549,16 @@ public class ServerGUI extends Application {
 
     public void updateProxyUI(boolean isRunning, String destination) {
         Platform.runLater(() -> {
-            startProxyButton.setDisable(isRunning);
-            stopProxyButton.setDisable(!isRunning);
+            // Toggle button text + style
+            if (proxyToggleButton != null) {
+                if (isRunning) {
+                    proxyToggleButton.setText("⏹ Stop Proxy");
+                    proxyToggleButton.setStyle("-fx-background-color: #757575; -fx-text-fill: white; -fx-background-radius: 8;");
+                } else {
+                    proxyToggleButton.setText("▶ Start Proxy");
+                    proxyToggleButton.setStyle("-fx-background-color: " + toHex(Color.web("#1976D2")) + "; -fx-text-fill: white; -fx-background-radius: 8;");
+                }
+            }
 
             // LED indicator for proxy status
             if (proxyStatusLed != null) {
@@ -552,11 +571,11 @@ public class ServerGUI extends Application {
 
             // Update main status indicator
             if (statusIndicator != null) {
-            if (isRunning && destination != null && !destination.isEmpty()) {
+                if (isRunning && destination != null && !destination.isEmpty()) {
                     statusIndicator.setFill(Color.web("#4CAF50")); // Green
-            } else if (isRunning) {
+                } else if (isRunning) {
                     statusIndicator.setFill(Color.web("#FF9800")); // Orange
-            } else {
+                } else {
                     statusIndicator.setFill(Color.web("#9E9E9E")); // Gray
                 }
             }
@@ -571,4 +590,6 @@ public class ServerGUI extends Application {
     public void updateProxyStatus(boolean isRunning, String destination) {
         updateProxyUI(isRunning, destination);
     }
+
+    private boolean isValidPort(int p) { return p > 0 && p <= 65535; }
 }
