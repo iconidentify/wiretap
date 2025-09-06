@@ -377,7 +377,7 @@ public class ServerGUI extends Application {
         try {
             // Use JavaFX HostServices instead of AWT Desktop for native image compatibility
             int actualHttpPort = httpApp != null ? httpApp.getHttpPort() : httpPort;
-            String url = "http://localhost:" + actualHttpPort;
+            String url = "http://localhost:" + actualHttpPort + "?gui=true";
             // Tab routing hint: use hash fragments (preferred by SPAs) or fall back to query param
             if (tabKey != null) {
                 switch (tabKey) {
@@ -610,11 +610,11 @@ public class ServerGUI extends Application {
 
             // Update main status indicator
             if (statusIndicator != null) {
-                if (isRunning && destination != null && !destination.isEmpty()) {
+            if (isRunning && destination != null && !destination.isEmpty()) {
                     statusIndicator.setFill(Color.web("#4CAF50")); // Green
-                } else if (isRunning) {
+            } else if (isRunning) {
                     statusIndicator.setFill(Color.web("#FF9800")); // Orange
-                } else {
+            } else {
                     statusIndicator.setFill(Color.web("#9E9E9E")); // Gray
                 }
             }

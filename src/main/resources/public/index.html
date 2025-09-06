@@ -102,7 +102,37 @@
         <div class="tab" data-tab="pcap">PCAP Analyzer</div>
       </div>
       <div id="tab-proxy" class="tab-panel active">
-        <div style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
+        <!-- GUI Mode: Show session metadata -->
+        <div id="proxy-gui-mode" style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px; display:none;">
+          <h3>Session Metadata</h3>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:12px;">
+            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
+              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Total Frames</div>
+              <div style="font-size:18px; font-weight:600;" id="session-frames">0</div>
+            </div>
+            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
+              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Active Connections</div>
+              <div style="font-size:18px; font-weight:600;" id="active-connections">0</div>
+            </div>
+            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
+              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Session Duration</div>
+              <div style="font-size:18px; font-weight:600;" id="session-duration">00:00:00</div>
+            </div>
+            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
+              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Data Rate</div>
+              <div style="font-size:18px; font-weight:600;" id="data-rate">0 B/s</div>
+            </div>
+          </div>
+          <div style="margin-top:16px; padding:12px; background: var(--surface-card); border-radius:8px;">
+            <div style="font-size:14px; font-weight:600; margin-bottom:8px;">Recent Activity</div>
+            <div id="recent-activity" style="font-size:12px; opacity:0.8; max-height:100px; overflow-y:auto;">
+              Session started - waiting for connections...
+            </div>
+          </div>
+        </div>
+
+        <!-- Headless Mode: Show proxy controls -->
+        <div id="proxy-headless-mode" style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
           <h3>Proxy Configuration</h3>
           <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
             Listen: <input id="px-listen" type="number" value="5190" style="width:80px">
@@ -155,6 +185,22 @@
       const pxHost = document.getElementById('px-host');
       const pxPort = document.getElementById('px-port');
       const proxyStatus = document.getElementById('proxy-status');
+
+      // Check if we're running in GUI mode
+      const urlParams = new URLSearchParams(window.location.search);
+      const isGuiMode = urlParams.get('gui') === 'true';
+
+      // Toggle between GUI and headless mode displays
+      const proxyGuiMode = document.getElementById('proxy-gui-mode');
+      const proxyHeadlessMode = document.getElementById('proxy-headless-mode');
+
+      if (isGuiMode) {
+        proxyGuiMode.style.display = 'block';
+        proxyHeadlessMode.style.display = 'none';
+      } else {
+        proxyGuiMode.style.display = 'none';
+        proxyHeadlessMode.style.display = 'block';
+      }
       
       
       // Proxy configuration persistence and instant detection
@@ -269,6 +315,11 @@
       let selectedFile = null;
       let proxyRunning = false;
 
+      // Session metadata tracking
+      let sessionStartTime = null;
+      let totalFramesReceived = 0;
+      let activeConnections = 0;
+
       const framesPcap = []; // {obj, raw}
       const framesProxy = []; // {obj, raw}
       function isProxyActive() {
@@ -276,6 +327,35 @@
         return t && t.dataset.tab === 'proxy' && proxyRunning;
       }
       function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
+
+      // Session metadata functions
+      function updateSessionMetadata() {
+        if (!isGuiMode) return;
+
+        // Update frame count
+        document.getElementById('session-frames').textContent = totalFramesReceived.toLocaleString();
+
+        // Update active connections
+        document.getElementById('active-connections').textContent = activeConnections;
+
+        // Update session duration
+        if (sessionStartTime) {
+          const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
+          const hours = Math.floor(duration / 3600);
+          const minutes = Math.floor((duration % 3600) / 60);
+          const seconds = duration % 60;
+          document.getElementById('session-duration').textContent =
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }
+
+      function addRecentActivity(message) {
+        if (!isGuiMode) return;
+        const activityDiv = document.getElementById('recent-activity');
+        const timestamp = new Date().toLocaleTimeString();
+        activityDiv.innerHTML += `<div>${timestamp}: ${message}</div>`;
+        activityDiv.scrollTop = activityDiv.scrollHeight;
+      }
       async function loadJsonlFile(file) {
         // reset UI
         document.getElementById('timeline-pcap').innerHTML = '';
@@ -382,6 +462,12 @@
       }
 
       function renderFrame(obj, raw, container) {
+        // Update session metadata for GUI mode
+        if (isGuiMode && container.id === 'timeline-proxy') {
+          totalFramesReceived++;
+          updateSessionMetadata();
+        }
+
         const el = document.createElement('div');
         el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s') + (obj.hasError ? ' err' : '');
         const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
@@ -465,6 +551,16 @@
         window.es.onopen = () => {
           console.log('Live stream connected successfully');
           toast('Live session active','ok');
+
+          // Initialize session metadata for GUI mode
+          if (isGuiMode) {
+            sessionStartTime = Date.now();
+            totalFramesReceived = 0;
+            activeConnections = 1;
+            updateSessionMetadata();
+            addRecentActivity('Live stream connected');
+          }
+
           // Only switch to proxy tab if user hasn't explicitly navigated elsewhere
           const currentHash = window.location.hash.substring(1);
           const cleanHash = currentHash.startsWith('/') ? currentHash.substring(1) : currentHash;
@@ -509,6 +605,13 @@
         if (window.es){
           window.es.close();
           window.es = null;
+        }
+
+        // Reset session metadata for GUI mode
+        if (isGuiMode) {
+          activeConnections = 0;
+          updateSessionMetadata();
+          addRecentActivity('Live stream disconnected');
         }
       }
 
@@ -699,6 +802,13 @@
       pxHost.addEventListener('change', saveProxyConfig);
       pxPort.addEventListener('change', saveProxyConfig);
 
+
+      // Periodic session metadata update for GUI mode
+      if (isGuiMode) {
+        setInterval(() => {
+          updateSessionMetadata();
+        }, 1000); // Update every second
+      }
 
       // Periodic proxy status check to keep UI in sync
       setInterval(() => {
