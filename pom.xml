@@ -62,7 +62,7 @@
         <version>${gluonfx.version}</version>
         <configuration>
           <mainClass>${main.class}</mainClass>
-          <reflectionList>reflect-config.json</reflectionList>
+          <reflectionList>META-INF/native-image/reflect-config.json</reflectionList>
           <bundlesList>bundles.properties</bundlesList>
         </configuration>
       </plugin>
