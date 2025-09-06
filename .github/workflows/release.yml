@@ -63,6 +63,11 @@ jobs:
           -H:+ReportUnsupportedElementsAtRuntime \
           -H:+PrintClassInitialization \
           --enable-url-protocols=http,https \
+          -Djava.awt.headless=false \
+          -H:+AllowIncompleteClasspath \
+          -H:+AddAllCharsets \
+          --enable-http \
+          --enable-https \
           -jar target/wiretap-1.0.0.jar \
           wiretap-macos
 
@@ -139,6 +144,11 @@ jobs:
           -H:+ReportUnsupportedElementsAtRuntime `
           -H:+PrintClassInitialization `
           --enable-url-protocols=http,https `
+          -Djava.awt.headless=false `
+          -H:+AllowIncompleteClasspath `
+          -H:+AddAllCharsets `
+          --enable-http `
+          --enable-https `
           -jar target/wiretap-1.0.0.jar `
           wiretap-windows
       shell: pwsh

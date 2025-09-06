@@ -23,7 +23,7 @@ public final class Main {
 
         // Auto-detect headless environments (like servers, CI, or native binaries without display)
         boolean isHeadless = Boolean.parseBoolean(System.getProperty("java.awt.headless", "false")) ||
-                            System.getenv("DISPLAY") == null ||
+                            (System.getenv("DISPLAY") == null && System.getProperty("os.name").toLowerCase().contains("linux")) ||
                             "true".equals(System.getProperty("wiretap.headless"));
 
         for (int i = 0; i < args.length; i++) {

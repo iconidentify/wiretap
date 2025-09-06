@@ -74,5 +74,132 @@
         "parameterTypes": ["boolean", "java.lang.String"]
       }
     ]
+  },
+  {
+    "name": "java.awt.GraphicsEnvironment",
+    "methods": [
+      {"name": "getLocalGraphicsEnvironment", "parameterTypes": []},
+      {"name": "isHeadless", "parameterTypes": []},
+      {"name": "checkHeadless", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.awt.Toolkit",
+    "methods": [
+      {"name": "getDefaultToolkit", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "javax.swing.JFrame",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "<init>", "parameterTypes": ["java.lang.String"]},
+      {"name": "setDefaultCloseOperation", "parameterTypes": ["int"]},
+      {"name": "setSize", "parameterTypes": ["int", "int"]},
+      {"name": "setLocationRelativeTo", "parameterTypes": ["java.awt.Component"]},
+      {"name": "setVisible", "parameterTypes": ["boolean"]},
+      {"name": "add", "parameterTypes": ["java.awt.Component"]},
+      {"name": "pack", "parameterTypes": []},
+      {"name": "dispose", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "javax.swing.JPanel",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "<init>", "parameterTypes": ["java.awt.LayoutManager"]},
+      {"name": "add", "parameterTypes": ["java.awt.Component"]}
+    ]
+  },
+  {
+    "name": "javax.swing.JButton",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["java.lang.String"]},
+      {"name": "addActionListener", "parameterTypes": ["java.awt.event.ActionListener"]}
+    ]
+  },
+  {
+    "name": "javax.swing.JTextField",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["int"]},
+      {"name": "getText", "parameterTypes": []},
+      {"name": "setText", "parameterTypes": ["java.lang.String"]}
+    ]
+  },
+  {
+    "name": "javax.swing.JLabel",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["java.lang.String"]}
+    ]
+  },
+  {
+    "name": "javax.swing.BorderFactory",
+    "methods": [
+      {"name": "createTitledBorder", "parameterTypes": ["java.lang.String"]},
+      {"name": "createEmptyBorder", "parameterTypes": ["int", "int", "int", "int"]},
+      {"name": "createRaisedBevelBorder", "parameterTypes": []},
+      {"name": "createLoweredBevelBorder", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.awt.BorderLayout",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.awt.FlowLayout",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "<init>", "parameterTypes": ["int"]}
+    ]
+  },
+  {
+    "name": "java.awt.GridBagLayout",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.awt.GridBagConstraints",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.awt.Font",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["java.lang.String", "int", "int"]}
+    ]
+  },
+  {
+    "name": "java.awt.Color",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["int", "int", "int"]}
+    ]
+  },
+  {
+    "name": "java.awt.Dimension",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["int", "int"]}
+    ]
+  },
+  {
+    "name": "javax.swing.SwingUtilities",
+    "methods": [
+      {"name": "invokeLater", "parameterTypes": ["java.lang.Runnable"]}
+    ]
+  },
+  {
+    "name": "java.awt.event.WindowAdapter",
+    "methods": [
+      {"name": "windowClosing", "parameterTypes": ["java.awt.event.WindowEvent"]}
+    ]
+  },
+  {
+    "name": "java.awt.event.ActionListener",
+    "methods": [
+      {"name": "actionPerformed", "parameterTypes": ["java.awt.event.ActionEvent"]}
+    ]
   }
 ]
