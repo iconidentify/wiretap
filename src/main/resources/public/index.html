@@ -434,7 +434,6 @@
       pauseBtn.addEventListener('click', () => { paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; if (!paused) rerenderAll(); });
       clearBtn.addEventListener('click', () => {
         activeFrames().length = 0;
-        clearFramesFromStorage();
         rerenderAll();
       });
 
