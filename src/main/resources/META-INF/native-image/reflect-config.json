@@ -55,11 +55,15 @@
     "methods": [
       {
         "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "<init>",
         "parameterTypes": ["int", "int"]
       },
       {
-        "name": "show",
-        "parameterTypes": []
+        "name": "launchGUI",
+        "parameterTypes": ["int", "int"]
       },
       {
         "name": "waitForClose",
@@ -72,6 +76,10 @@
       {
         "name": "updateProxyStatus",
         "parameterTypes": ["boolean", "java.lang.String"]
+      },
+      {
+        "name": "setHttpApp",
+        "parameterTypes": ["com.wiretap.web.HttpApp"]
       }
     ]
   },
@@ -211,6 +219,46 @@
     "name": "java.awt.event.ActionListener",
     "methods": [
       {"name": "actionPerformed", "parameterTypes": ["java.awt.event.ActionEvent"]}
+    ]
+  },
+  {
+    "name": "javafx.application.Application",
+    "methods": [
+      {"name": "launch", "parameterTypes": ["java.lang.Class", "java.lang.String[]"]}
+    ]
+  },
+  {
+    "name": "javafx.stage.Stage",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "setTitle", "parameterTypes": ["java.lang.String"]},
+      {"name": "setScene", "parameterTypes": ["javafx.scene.Scene"]},
+      {"name": "show", "parameterTypes": []},
+      {"name": "hide", "parameterTypes": []},
+      {"name": "setOnCloseRequest", "parameterTypes": ["javafx.event.EventHandler"]}
+    ]
+  },
+  {
+    "name": "javafx.scene.Scene",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["javafx.scene.Parent", "double", "double"]}
+    ]
+  },
+  {
+    "name": "javafx.scene.control.Alert",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["javafx.scene.control.Alert$AlertType"]},
+      {"name": "setTitle", "parameterTypes": ["java.lang.String"]},
+      {"name": "setHeaderText", "parameterTypes": ["java.lang.String"]},
+      {"name": "setContentText", "parameterTypes": ["java.lang.String"]},
+      {"name": "showAndWait", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "javafx.application.Platform",
+    "methods": [
+      {"name": "runLater", "parameterTypes": ["java.lang.Runnable"]},
+      {"name": "exit", "parameterTypes": []}
     ]
   }
 ]

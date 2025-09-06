@@ -9,6 +9,9 @@
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
+    <javafx.version>17.0.2</javafx.version>
+    <gluonfx.version>1.0.20</gluonfx.version>
+    <main.class>com.wiretap.Main</main.class>
   </properties>
   <build>
     <plugins>
@@ -53,9 +56,35 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>com.gluonhq</groupId>
+        <artifactId>gluonfx-maven-plugin</artifactId>
+        <version>${gluonfx.version}</version>
+        <configuration>
+          <mainClass>${main.class}</mainClass>
+          <reflectionList>reflect-config.json</reflectionList>
+          <bundlesList>bundles.properties</bundlesList>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
+    <!-- JavaFX Dependencies -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-fxml</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
   </dependencies>
 </project>
 

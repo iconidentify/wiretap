@@ -52,35 +52,21 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    - name: Build native image for macOS
-      run: |
-        $GRAALVM_HOME/bin/native-image \
-          --no-fallback \
-          --initialize-at-build-time \
-          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json \
-          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json \
-          -H:+ReportUnsupportedElementsAtRuntime \
-          -H:+PrintClassInitialization \
-          --enable-url-protocols=http,https \
-          -Djava.awt.headless=false \
-          -H:+AddAllCharsets \
-          --enable-http \
-          --enable-https \
-          -jar target/wiretap-1.0.0.jar \
-          wiretap-macos
+    - name: Build native image for macOS with Gluon
+      run: mvn gluonfx:build gluonfx:package
 
     - name: Create macOS app bundle
       run: |
         mkdir -p WireTap.app/Contents/MacOS
         mkdir -p WireTap.app/Contents/Resources
-        cp wiretap-macos WireTap.app/Contents/MacOS/
+        cp target/gluonfx/x86_64-darwin/wiretap WireTap.app/Contents/MacOS/
         cat > WireTap.app/Contents/Info.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>CFBundleExecutable</key>
-            <string>wiretap-macos</string>
+            <string>wiretap</string>
             <key>CFBundleIdentifier</key>
             <string>com.wiretap.aol</string>
             <key>CFBundleName</key>
@@ -101,8 +87,8 @@ jobs:
 
     - name: Upload macOS executable to Release
       run: |
-        gh release upload ${{ github.event.release.tag_name }} wiretap-macos
-        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap-macos --clobber
+        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap
+        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -131,25 +117,11 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    - name: Build native image for Windows
+    - name: Build native image for Windows with Gluon
       shell: cmd
-      run: |
-        "%GRAALVM_HOME%\bin\native-image.cmd" ^
-          --no-fallback ^
-          --initialize-at-build-time ^
-          -H:ReflectionConfigurationFiles=src/main/resources/META-INF/native-image/reflect-config.json ^
-          -H:ResourceConfigurationFiles=src/main/resources/META-INF/native-image/resource-config.json ^
-          -H:+ReportUnsupportedElementsAtRuntime ^
-          -H:+PrintClassInitialization ^
-          --enable-url-protocols=http,https ^
-          -Djava.awt.headless=false ^
-          -H:+AddAllCharsets ^
-          --enable-http ^
-          --enable-https ^
-          -jar target/wiretap-1.0.0.jar ^
-          wiretap-windows.exe
+      run: mvn gluonfx:build gluonfx:package
 
     - name: Upload Windows executable to Release
-      run: gh release upload ${{ github.event.release.tag_name }} wiretap-windows.exe
+      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

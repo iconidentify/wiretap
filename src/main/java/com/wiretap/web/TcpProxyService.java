@@ -27,6 +27,10 @@ final class TcpProxyService implements Closeable {
         this.destHost = destHost; this.destPort = destPort;
     }
 
+    public int getListenPort() {
+        return listenPort;
+    }
+
     void start() {
         if (running) return;
         running = true;

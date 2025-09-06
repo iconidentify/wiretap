@@ -35,6 +35,9 @@ public final class HttpApp {
     private final Queue<String> sessionFrames = new ConcurrentLinkedQueue<>();
     private static final int MAX_SESSION_FRAMES = 1000; // Keep last 1000 frames
 
+    // Total frames counter - keeps track of all frames processed
+    private volatile long totalFramesProcessed = 0;
+
     // Static reference to current instance for LiveBus
     private static HttpApp currentInstance;
 
@@ -56,12 +59,28 @@ public final class HttpApp {
                 sessionFrames.poll();
             }
         }
+        // Increment total frames counter (thread-safe)
+        totalFramesProcessed++;
     }
 
     public String[] getSessionFrames() {
         synchronized (sessionFrames) {
             return sessionFrames.toArray(new String[0]);
         }
+    }
+
+    public long getTotalFramesProcessed() {
+        return totalFramesProcessed;
+    }
+
+    public int getCurrentProxyListenPort() {
+        synchronized (HttpApp.this) {
+            return proxy != null ? proxy.getListenPort() : -1;
+        }
+    }
+
+    public int getHttpPort() {
+        return httpPort;
     }
 
     public static HttpApp getCurrentInstance() {
@@ -127,8 +146,9 @@ public final class HttpApp {
                     proxy = null;
                     toClose.close();
                 }
-                // Clear session frames when proxy stops
+                // Clear session frames and reset counter when proxy stops
                 sessionFrames.clear();
+                totalFramesProcessed = 0;
                 if (gui != null) {
                     gui.updateProxyUI(false, null);
                 }
