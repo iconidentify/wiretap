@@ -30,6 +30,12 @@ A comprehensive network traffic analysis and packet capture tool specifically de
 - Protocol structure analysis
 - Historical AOL protocol documentation
 
+## Screenshot
+
+![WireTap Web Interface](screenshot.png)
+
+*The WireTap web interface showing real-time AOL protocol analysis with session details, protocol insights, and packet visualization.*
+
 ## Quick Start
 
 ### Prerequisites
