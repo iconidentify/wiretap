@@ -25,4 +25,4 @@ jobs:
     - name: Upload JAR to Release
       run: gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
