@@ -59,55 +59,54 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Build native image for macOS with Gluon
-      run: mvn gluonfx:build -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
+      run: mvn -B gluonfx:build -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath" -Dgluonfx.macos.codesign=false
+
+    # Find the produced executable and normalize its name
+    - name: Locate and normalize macOS binary
+      run: |
+        set -euo pipefail
+        echo "Listing target dir:"
+        ls -la target/gluonfx/aarch64-darwin || true
+
+        # Find first executable file at depth 1
+        BIN="$(find target/gluonfx/aarch64-darwin -maxdepth 1 -type f -perm -111 | head -n1 || true)"
+        if [ -z "${BIN}" ]; then
+          echo "ERROR: No executable found in target/gluonfx/aarch64-darwin"
+          exit 1
+        fi
+        echo "Found executable: ${BIN}"
+        cp "${BIN}" target/gluonfx/aarch64-darwin/wiretap-macos-arm64
+        chmod +x target/gluonfx/aarch64-darwin/wiretap-macos-arm64
 
     - name: Create macOS app bundle
       run: |
+        set -euo pipefail
         mkdir -p WireTap.app/Contents/MacOS
         mkdir -p WireTap.app/Contents/Resources
         cp target/gluonfx/aarch64-darwin/wiretap-macos-arm64 WireTap.app/Contents/MacOS/wiretap
-        cat > WireTap.app/Contents/Info.plist << EOF
+        cat > WireTap.app/Contents/Info.plist << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
-        <dict>
-            <key>CFBundleExecutable</key>
-            <string>wiretap</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.wiretap.aol</string>
-            <key>CFBundleName</key>
-            <string>WireTap</string>
-            <key>CFBundleVersion</key>
-            <string>${{ github.event.release.tag_name }}</string>
-            <key>CFBundleShortVersionString</key>
-            <string>${{ github.event.release.tag_name }}</string>
-            <key>CFBundleInfoDictionaryVersion</key>
-            <string>6.0</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleSignature</key>
-            <string>????</string>
-        </dict>
+          <dict>
+            <key>CFBundleExecutable</key><string>wiretap</string>
+            <key>CFBundleIdentifier</key><string>com.wiretap.aol</string>
+            <key>CFBundleName</key><string>WireTap</string>
+            <key>CFBundleVersion</key><string>${{ github.event.release.tag_name }}</string>
+            <key>CFBundleShortVersionString</key><string>${{ github.event.release.tag_name }}</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleSignature</key><string>????</string>
+          </dict>
         </plist>
         EOF
+        # Optional: zip the .app for release
+        ditto -c -k --sequesterRsrc --keepParent WireTap.app WireTap-macOS.app.zip
 
-    - name: Rename macOS binary
+    - name: Upload macOS executable & app to Release
       run: |
-        ls -la target/gluonfx/aarch64-darwin/
-        if [ -f target/gluonfx/aarch64-darwin/wiretap ]; then
-          mv target/gluonfx/aarch64-darwin/wiretap target/gluonfx/aarch64-darwin/wiretap-macos-arm64
-        else
-          echo "Binary not found as 'wiretap', checking for other names..."
-          find target/gluonfx/aarch64-darwin/ -type f -executable -exec mv {} target/gluonfx/aarch64-darwin/wiretap-macos-arm64 \;
-        fi
-
-    - name: Upload macOS executable to Release
-      run: |
-        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/aarch64-darwin/wiretap-macos-arm64; then
-          echo "macOS executable upload failed, trying to delete and re-upload..."
-          gh release delete-asset ${{ github.event.release.tag_name }} wiretap-macos-arm64 || true
-          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/aarch64-darwin/wiretap-macos-arm64
-        fi
+        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/aarch64-darwin/wiretap-macos-arm64 || true
+        gh release upload ${{ github.event.release.tag_name }} WireTap-macOS.app.zip || true
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
