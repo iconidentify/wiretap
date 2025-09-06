@@ -30,9 +30,11 @@ jobs:
 
     - name: Upload JAR to Release
       run: |
-        gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar || \
-        (gh release delete-asset ${{ github.event.release.tag_name }} wiretap-1.0.0.jar && \
-         gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar)
+        if ! gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar; then
+          echo "Upload failed, trying to delete and re-upload..."
+          gh release delete-asset ${{ github.event.release.tag_name }} wiretap-1.0.0.jar || true
+          gh release upload ${{ github.event.release.tag_name }} ./target/wiretap-1.0.0.jar
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -101,8 +103,16 @@ jobs:
 
     - name: Upload macOS executable to Release
       run: |
-        gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap && gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap)
-        gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap && gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap)
+        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap; then
+          echo "macOS executable upload failed, trying to delete and re-upload..."
+          gh release delete-asset ${{ github.event.release.tag_name }} wiretap || true
+          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-darwin/wiretap
+        fi
+        if ! gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap; then
+          echo "macOS app bundle upload failed, trying to delete and re-upload..."
+          gh release delete-asset ${{ github.event.release.tag_name }} wiretap || true
+          gh release upload ${{ github.event.release.tag_name }} WireTap.app/Contents/MacOS/wiretap
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
@@ -112,6 +122,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up Visual Studio Build Tools
+      uses: microsoft/setup-msbuild@v2
 
     - name: Set up GraalVM
       uses: graalvm/setup-graalvm@v1
@@ -141,6 +154,11 @@ jobs:
       run: mvn gluonfx:build gluonfx:package
 
     - name: Upload Windows executable to Release
-      run: gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe || (gh release delete-asset ${{ github.event.release.tag_name }} wiretap.exe && gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe)
+      run: |
+        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe; then
+          echo "Windows executable upload failed, trying to delete and re-upload..."
+          gh release delete-asset ${{ github.event.release.tag_name }} wiretap.exe || true
+          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
