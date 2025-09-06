@@ -21,6 +21,11 @@ public final class Main {
         boolean noGui = false;
         int httpPort = 8080;
 
+        // Auto-detect headless environments (like servers, CI, or native binaries without display)
+        boolean isHeadless = Boolean.parseBoolean(System.getProperty("java.awt.headless", "false")) ||
+                            System.getenv("DISPLAY") == null ||
+                            "true".equals(System.getProperty("wiretap.headless"));
+
         for (int i = 0; i < args.length; i++) {
             String k = args[i];
             String v = (i + 1 < args.length && !args[i + 1].startsWith("--")) ? args[++i] : null;
@@ -42,6 +47,12 @@ public final class Main {
                     return;
                 }
             }
+        }
+
+        // If running in headless environment and no GUI flag was explicitly set, force headless mode
+        if (isHeadless && !pcapMode) {
+            noGui = true;
+            System.out.println("Headless environment detected, running in headless mode");
         }
 
         if (pcapMode) {
