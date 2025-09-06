@@ -69,7 +69,7 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Build native image for macOS with Gluon
-      run: mvn gluonfx:build gluonfx:package
+      run: mvn gluonfx:build gluonfx:package -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
 
     - name: Create macOS app bundle
       run: |
@@ -151,7 +151,7 @@ jobs:
 
     - name: Build native image for Windows with Gluon
       shell: cmd
-      run: mvn gluonfx:build gluonfx:package
+      run: mvn gluonfx:build gluonfx:package -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
 
     - name: Upload Windows executable to Release
       run: |

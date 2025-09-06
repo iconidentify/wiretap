@@ -263,9 +263,9 @@
   },
   {
     "name": "com.sun.glass.ui.mac.MacVariant",
-    "methods": [
-      {"name": "toString", "parameterTypes": []}
-    ]
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
   },
   {
     "name": "com.sun.glass.ui.PlatformFactory",
