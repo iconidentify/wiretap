@@ -2,6 +2,12 @@
 
 A network protocol analyzer and packet capture tool designed specifically for reverse engineering and analyzing the AOL protocol.
 
+## Screenshot
+
+![WireTap Interface](screenshot.png)
+
+*The WireTap web interface showing real-time AOL protocol analysis and packet capture.*
+
 ## Features
 
 - **Real-time AOL Protocol Analysis** - Live packet capture and dissection
