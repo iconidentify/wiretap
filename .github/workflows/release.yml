@@ -117,7 +117,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Puts MSVC (cl.exe) and Windows SDK on PATH
+    # MSVC (cl.exe) + Windows SDK on PATH
     - name: Enable MSVC Build Tools
       uses: ilammy/msvc-dev-cmd@v1
       with:
@@ -144,18 +144,36 @@ jobs:
           ${{ runner.os }}-maven-
 
     - name: Build with Maven
-      run: mvn clean package -DskipTests
+      run: mvn -B clean package -DskipTests
 
     - name: Build native image for Windows with Gluon
       shell: cmd
-      run: mvn gluonfx:build gluonfx:package -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
+      run: mvn -B gluonfx:build gluonfx:package -Dgluonfx.nativeimage.args="--no-fallback,--allow-incomplete-classpath"
 
-    - name: Upload Windows executable to Release
+    # Normalize names to match your mac artifact style
+    - name: Normalize Windows artifact names
+      shell: pwsh
       run: |
-        if ! gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe; then
-          echo "Windows executable upload failed, trying to delete and re-upload..."
-          gh release delete-asset ${{ github.event.release.tag_name }} wiretap.exe || true
-          gh release upload ${{ github.event.release.tag_name }} target/gluonfx/x86_64-windows/wiretap.exe
-        fi
+        $out = "target/gluonfx/x86_64-windows"
+        if (!(Test-Path $out)) { Write-Error "Missing output dir $out"; exit 1 }
+
+        $exe = Get-ChildItem "$out" -File -Filter *.exe | Select-Object -First 1
+        if (!$exe) { Write-Error "No .exe produced"; exit 1 }
+        Copy-Item $exe.FullName "$out/wiretap-windows-x64.exe" -Force
+
+        $msi = Get-ChildItem "$out" -File -Filter *.msi | Select-Object -First 1
+        if ($msi) { Copy-Item $msi.FullName "$out/wiretap-windows-x64.msi" -Force }
+
+        Write-Host "Artifacts:"
+        Get-ChildItem "$out" -File
+
+    - name: Upload Windows artifacts to Release
+      shell: pwsh
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      run: |
+        $tag = "${{ github.event.release.tag_name }}"
+        gh release upload $tag `
+          target/gluonfx/x86_64-windows/wiretap-windows-x64.exe `
+          target/gluonfx/x86_64-windows/wiretap-windows-x64.msi `
+          --clobber
