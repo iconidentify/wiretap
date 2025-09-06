@@ -472,10 +472,15 @@
         window.es.onopen = () => {
           console.log('Live stream connected successfully');
           toast('Live session active','ok');
-          // Switch to proxy tab if not already there
-          const proxyTab = document.querySelector('[data-tab="proxy"]');
-          if (proxyTab && !proxyTab.classList.contains('active')) {
-            proxyTab.click();
+          // Only switch to proxy tab if user hasn't explicitly navigated elsewhere
+          const currentHash = window.location.hash.substring(1);
+          const cleanHash = currentHash.startsWith('/') ? currentHash.substring(1) : currentHash;
+          // Don't override user's explicit navigation to PCAP tab
+          if (cleanHash !== 'pcap') {
+            const proxyTab = document.querySelector('[data-tab="proxy"]');
+            if (proxyTab && !proxyTab.classList.contains('active')) {
+              proxyTab.click();
+            }
           }
         };
         window.es.onmessage = (ev) => {
