@@ -56,6 +56,7 @@ public class ServerGUI extends Application {
     private final CountDownLatch closeLatch;
     private final AtomicBoolean isRunning;
     private HttpApp httpApp;
+    private Runnable shutdownCallback;
 
     // UI Components
     private Circle statusIndicator;
@@ -134,6 +135,10 @@ public class ServerGUI extends Application {
 
     public void setHttpApp(HttpApp httpApp) {
         this.httpApp = httpApp;
+    }
+
+    public void setShutdownCallback(Runnable callback) {
+        this.shutdownCallback = callback;
     }
 
     private Scene createScene() {
@@ -537,6 +542,12 @@ public class ServerGUI extends Application {
                 primaryStage.hide();
             }
             closeLatch.countDown();
+
+            // Notify main application to shutdown
+            if (shutdownCallback != null) {
+                shutdownCallback.run();
+            }
+
             Platform.exit();
         });
     }

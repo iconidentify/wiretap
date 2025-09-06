@@ -140,6 +140,14 @@ public final class Main {
 
                     Thread guiThread = new Thread(() -> {
                         try {
+                            ServerGUI gui = new ServerGUI(finalHttpPort, finalServerPort);
+                            gui.setHttpApp(finalHttpApp);
+                            // Set shutdown callback to exit the main thread
+                            gui.setShutdownCallback(() -> {
+                                System.out.println("GUI closed, shutting down application...");
+                                // Interrupt the main thread to exit the application
+                                Thread.currentThread().interrupt();
+                            });
                             ServerGUI.launchGUI(finalHttpPort, finalServerPort);
                         } catch (Exception e) {
                             System.err.println("Failed to launch JavaFX GUI: " + e.getMessage());
@@ -172,8 +180,18 @@ public final class Main {
                 System.out.println("Shutting down WireTap server...");
             }));
 
-            // Keep the main thread alive
-            Thread.currentThread().join();
+            // Keep the main thread alive until GUI closes or interrupted
+            try {
+                Thread.currentThread().join();
+            } catch (InterruptedException e) {
+                System.out.println("Main thread interrupted, shutting down...");
+            }
+
+            // Ensure proper cleanup when exiting
+            System.out.println("Shutting down WireTap server...");
+            if (httpApp != null) {
+                httpApp.shutdown();
+            }
         }
     }
 }

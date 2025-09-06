@@ -160,11 +160,29 @@ public final class HttpApp {
         }
     }
 
+    public void shutdown() {
+        System.out.println("Shutting down HTTP server...");
+
+        // Stop the proxy first
+        stopProxy();
+
+        // Stop the HTTP server
+        if (server != null) {
+            server.stop(0); // Stop immediately
+            System.out.println("HTTP server stopped");
+        }
+
+        // Clear the current instance reference
+        currentInstance = null;
+    }
+
+    private HttpServer server;
+
     public void start() throws IOException {
         // Set this as the current instance for LiveBus
         currentInstance = this;
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(httpPort), 0);
+        server = HttpServer.create(new InetSocketAddress(httpPort), 0);
 
         server.createContext("/", new StaticHandler("/public/index.html"));
         server.createContext("/assets/", new StaticDirHandler("/public"));
