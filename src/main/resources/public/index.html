@@ -111,8 +111,8 @@
               <div style="font-size:18px; font-weight:600;" id="session-frames">0</div>
             </div>
             <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
-              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Active Connections</div>
-              <div style="font-size:18px; font-weight:600;" id="active-connections">0</div>
+              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Sequence Status</div>
+              <div style="font-size:18px; font-weight:600;" id="sequence-status">OK</div>
             </div>
             <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
               <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Session Duration</div>
@@ -186,7 +186,7 @@
       const pxPort = document.getElementById('px-port');
       const proxyStatus = document.getElementById('proxy-status');
 
-      // Check if we're running in GUI mode
+      // Check if we're running in GUI mode (do this early)
       const urlParams = new URLSearchParams(window.location.search);
       const isGuiMode = urlParams.get('gui') === 'true';
 
@@ -249,6 +249,9 @@
 
                 if (frames.length > 0) {
                   toast(`Loaded ${frames.length} frames from current session`, 'ok');
+                  if (isGuiMode) {
+                    addRecentActivity(`Loaded ${frames.length} frames from current session`);
+                  }
                 }
               }
             } catch (err) {
@@ -318,7 +321,9 @@
       // Session metadata tracking
       let sessionStartTime = null;
       let totalFramesReceived = 0;
-      let activeConnections = 0;
+      let frameTimestamps = [];
+      let lastSequenceNumber = null;
+      let sequenceGaps = 0;
 
       const framesPcap = []; // {obj, raw}
       const framesProxy = []; // {obj, raw}
@@ -335,8 +340,20 @@
         // Update frame count
         document.getElementById('session-frames').textContent = totalFramesReceived.toLocaleString();
 
-        // Update active connections
-        document.getElementById('active-connections').textContent = activeConnections;
+        // Update sequence status
+        const sequenceStatus = sequenceGaps > 0 ? `${sequenceGaps} gaps` : 'OK';
+        document.getElementById('sequence-status').textContent = sequenceStatus;
+
+        // Calculate and update FPS (frames per second)
+        let fps = 0;
+        if (frameTimestamps.length >= 2) {
+          const recentFrames = frameTimestamps.filter(ts => Date.now() - ts < 10000); // Last 10 seconds
+          if (recentFrames.length >= 2) {
+            const timeSpan = (recentFrames[recentFrames.length - 1] - recentFrames[0]) / 1000; // seconds
+            fps = Math.round(recentFrames.length / timeSpan);
+          }
+        }
+        document.getElementById('data-rate').textContent = `${fps} fps`;
 
         // Update session duration
         if (sessionStartTime) {
@@ -462,9 +479,29 @@
       }
 
       function renderFrame(obj, raw, container) {
-        // Update session metadata for GUI mode
+        // Update session metadata for GUI mode - count all frames in proxy timeline
         if (isGuiMode && container.id === 'timeline-proxy') {
           totalFramesReceived++;
+
+          // Track frame timestamps for FPS calculation
+          const now = Date.now();
+          frameTimestamps.push(now);
+
+          // Keep only last 60 seconds of timestamps for FPS calculation
+          const oneMinuteAgo = now - 60000;
+          frameTimestamps = frameTimestamps.filter(ts => ts > oneMinuteAgo);
+
+          // Track sequence numbers for gap detection
+          if (obj.seq !== undefined) {
+            if (lastSequenceNumber !== null) {
+              const expectedSeq = lastSequenceNumber + 1;
+              if (obj.seq > expectedSeq) {
+                sequenceGaps += (obj.seq - expectedSeq);
+              }
+            }
+            lastSequenceNumber = obj.seq;
+          }
+
           updateSessionMetadata();
         }
 
@@ -556,7 +593,9 @@
           if (isGuiMode) {
             sessionStartTime = Date.now();
             totalFramesReceived = 0;
-            activeConnections = 1;
+            frameTimestamps = [];
+            lastSequenceNumber = null;
+            sequenceGaps = 0;
             updateSessionMetadata();
             addRecentActivity('Live stream connected');
           }
@@ -579,6 +618,11 @@
             const frameData = { obj, raw: ev.data, isLive: true };
             activeFrames().push(frameData);
             renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
+
+            // Log activity for first few frames
+            if (isGuiMode && totalFramesReceived <= 5) {
+              addRecentActivity(`Received frame #${totalFramesReceived} (${obj.dir})`);
+            }
           } catch (e) {
             console.error('Failed to parse live frame:', e, ev.data);
           }
