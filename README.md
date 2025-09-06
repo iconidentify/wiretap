@@ -1,4 +1,4 @@
-# WireTap - AOL Protocol Analyzer
+# <img src="logo.png" alt="WireTap Logo" width="40" height="40"> WireTap - AOL Protocol Analyzer
 
 A comprehensive network traffic analysis and packet capture tool specifically designed for reverse engineering and analyzing the AOL protocol. This tool provides both interactive GUI and headless server modes for capturing, analyzing, and visualizing AOL network traffic in real-time.
 
