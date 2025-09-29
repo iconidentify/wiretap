@@ -679,29 +679,72 @@
       });
       exportJsonlBtn.addEventListener('click', async () => {
         try {
-          // Fetch all session frames from the server instead of relying on client-side arrays
-          const response = await fetch('/api/session/frames');
-          if (!response.ok) {
-            throw new Error(`Failed to fetch session frames: ${response.status}`);
-          }
+          const currentTab = document.querySelector('.tab.active');
+          const isProxyTab = currentTab && currentTab.dataset.tab === 'proxy';
+          const isPcapTab = currentTab && currentTab.dataset.tab === 'pcap';
 
-          const framesJson = await response.json();
-          const lines = [];
+          let lines = [];
+          let filename = 'export.jsonl';
+          let dataSource = '';
 
-          // Parse each frame JSON string and re-stringify for clean export
-          for (const frameJson of framesJson) {
-            try {
-              const frameObj = JSON.parse(frameJson);
-              lines.push(JSON.stringify(frameObj));
-            } catch (e) {
-              console.warn('Failed to parse frame:', frameJson, e);
-              // Include the original JSON string if parsing fails
-              lines.push(frameJson);
+          if (isPcapTab) {
+            // Export PCAP analysis data (client-side)
+            const frames = activeFrames(); // This will return framesPcap when on PCAP tab
+
+            if (frames.length === 0) {
+              toast('No PCAP frames to export', 'err');
+              return;
             }
+
+            // Convert frame objects to JSONL format
+            for (const frameData of frames) {
+              try {
+                if (frameData.raw) {
+                  // Use the raw JSON string if available
+                  lines.push(frameData.raw);
+                } else if (frameData.obj) {
+                  // Convert object to JSON string
+                  lines.push(JSON.stringify(frameData.obj));
+                }
+              } catch (e) {
+                console.warn('Failed to process frame for export:', frameData, e);
+              }
+            }
+
+            filename = 'pcap_analysis.jsonl';
+            dataSource = 'PCAP analysis';
+
+          } else if (isProxyTab) {
+            // Export live session data (server-side)
+            const response = await fetch('/api/session/frames');
+            if (!response.ok) {
+              throw new Error(`Failed to fetch session frames: ${response.status}`);
+            }
+
+            const framesJson = await response.json();
+
+            // Parse each frame JSON string and re-stringify for clean export
+            for (const frameJson of framesJson) {
+              try {
+                const frameObj = JSON.parse(frameJson);
+                lines.push(JSON.stringify(frameObj));
+              } catch (e) {
+                console.warn('Failed to parse frame:', frameJson, e);
+                // Include the original JSON string if parsing fails
+                lines.push(frameJson);
+              }
+            }
+
+            filename = 'session.summary.jsonl';
+            dataSource = 'live session';
+
+          } else {
+            toast('Unable to determine data source for export', 'err');
+            return;
           }
 
           if (lines.length === 0) {
-            toast('No session frames to export', 'err');
+            toast(`No ${dataSource} frames to export`, 'err');
             return;
           }
 
@@ -709,14 +752,14 @@
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = 'session.summary.jsonl';
+          a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
 
-          toast(`Exported ${lines.length} frames to JSONL`, 'ok');
+          toast(`Exported ${lines.length} ${dataSource} frames to JSONL`, 'ok');
         } catch (error) {
           console.error('Export failed:', error);
-          toast('Failed to export session frames', 'err');
+          toast('Failed to export frames', 'err');
         }
       });
 
