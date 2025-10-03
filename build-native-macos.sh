@@ -156,6 +156,14 @@ create_app_bundle() {
     cp "$EXECUTABLE_PATH" WireTap.app/Contents/MacOS/wiretap
     chmod +x WireTap.app/Contents/MacOS/wiretap
 
+    # Copy icon
+    if [ -f "src/main/resources/icons/icon.icns" ]; then
+        cp "src/main/resources/icons/icon.icns" WireTap.app/Contents/Resources/icon.icns
+        print_success "Icon copied to app bundle"
+    else
+        print_warning "Icon file not found at src/main/resources/icons/icon.icns"
+    fi
+
     # Create Info.plist
     cat > WireTap.app/Contents/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -170,6 +178,7 @@ create_app_bundle() {
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleSignature</key><string>????</string>
+    <key>CFBundleIconFile</key><string>icon.icns</string>
   </dict>
 </plist>
 EOF

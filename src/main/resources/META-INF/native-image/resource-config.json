@@ -9,6 +9,9 @@
       },
       {
         "pattern": "META-INF/.*"
+      },
+      {
+        "pattern": "icons/.*"
       }
     ]
   },

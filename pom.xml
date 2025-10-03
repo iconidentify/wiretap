@@ -63,6 +63,12 @@
         <configuration>
           <mainClass>${main.class}</mainClass>
           <bundlesList>bundles.properties</bundlesList>
+          <appIdentifier>com.wiretap.aol</appIdentifier>
+          <appName>WireTap</appName>
+          <resourcesList>
+            <list>src/main/resources/icons/icon.icns</list>
+            <list>src/main/resources/icons/icon.ico</list>
+          </resourcesList>
         </configuration>
       </plugin>
     </plugins>
