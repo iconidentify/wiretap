@@ -91,6 +91,82 @@
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
+
+      /* StreamId selection and highlighting */
+      .stream-id-pill {
+        cursor: pointer;
+        position: relative;
+        transition: all 0.15s ease;
+      }
+      .stream-id-pill:hover {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: rgba(59, 130, 246, 0.4);
+      }
+      .stream-id-pill:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
+      .stream-selected {
+        background: var(--primary) !important;
+        color: white !important;
+        border-color: var(--primary) !important;
+        font-weight: 600;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
+      .stream-selected::after {
+        content: "×";
+        margin-left: 4px;
+        opacity: 0.8;
+        font-size: 14px;
+      }
+      .stream-highlighted {
+        background: rgba(59, 130, 246, 0.15) !important;
+        border-color: var(--primary) !important;
+        color: var(--primary) !important;
+        font-weight: 500;
+        animation: pulse-highlight 0.4s ease-out;
+      }
+      .frame.stream-match {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+      }
+      .frame.stream-match::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--primary);
+        border-radius: 2px 0 0 2px;
+        animation: slide-in 0.3s ease-out;
+      }
+      @keyframes pulse-highlight {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes slide-in {
+        from {
+          opacity: 0;
+          transform: translateX(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
     </style>
   </head>
   <body>
@@ -330,6 +406,9 @@
       }
       function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
 
+      // StreamId filtering state
+      let activeStreamId = null;
+
       // Session metadata functions
       function updateSessionMetadata() {
         if (!isGuiMode) return;
@@ -533,7 +612,14 @@
         const crcTitle = crcOk ? 'CRC-16 IBM matches computed value' : 'CRC-16 IBM mismatch (computed != header)';
         const formattedTs = formatTimestamp(obj.ts);
         const streamIdValue = extractStreamIdFromHex(obj);
-        const streamIdPill = streamIdValue ? `<span class="pill" title="Stream ID: Identifies the data channel">sid: ${streamIdValue}</span>` : '';
+        const streamIdPill = streamIdValue
+          ? `<span class="pill stream-id-pill"
+                    data-stream-id="${streamIdValue}"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Stream ID ${streamIdValue}. Click to highlight all matching frames"
+                    title="Stream ID: ${streamIdValue} - Click to highlight all frames">sid: ${streamIdValue}</span>`
+          : '';
         el.innerHTML = `
           <div class="meta">
             <span class="pill ${dirPillClass}" title="${dirTitle}">${obj.dir}</span>
@@ -675,6 +761,97 @@
           activeConnections = 0;
           updateSessionMetadata();
         }
+      }
+
+      // StreamId filtering functions
+      function highlightStream(streamId) {
+        // Clear any existing highlights
+        clearStreamHighlight();
+
+        // Set new active stream
+        activeStreamId = streamId;
+
+        // Find all pills with matching streamId
+        const allPills = document.querySelectorAll(`[data-stream-id="${streamId}"]`);
+        const matchCount = allPills.length;
+
+        if (matchCount === 0) return;
+
+        // Highlight pills and frames
+        allPills.forEach((pill, index) => {
+          const frame = pill.closest('.frame');
+
+          // First pill gets selected state, others get highlighted state
+          if (index === 0) {
+            pill.classList.add('stream-selected');
+          } else {
+            pill.classList.add('stream-highlighted');
+          }
+
+          // Highlight the frame container
+          if (frame) {
+            frame.classList.add('stream-match');
+          }
+        });
+
+        // Show toast notification
+        const plural = matchCount !== 1 ? 's' : '';
+        toast(`Highlighting ${matchCount} frame${plural} with streamId: ${streamId}`, 'ok');
+      }
+
+      function clearStreamHighlight() {
+        if (!activeStreamId) return;
+
+        // Remove all highlight classes from pills
+        document.querySelectorAll('.stream-selected, .stream-highlighted')
+          .forEach(el => el.classList.remove('stream-selected', 'stream-highlighted'));
+
+        // Remove highlight classes from frames
+        document.querySelectorAll('.frame.stream-match')
+          .forEach(frame => frame.classList.remove('stream-match'));
+
+        // Reset state
+        activeStreamId = null;
+      }
+
+      function initStreamIdFiltering() {
+        // Click handler for streamId pills
+        document.addEventListener('click', (e) => {
+          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+
+          if (!pill) {
+            // Check if clicking outside - clear selection
+            if (activeStreamId && !e.target.closest('.frame')) {
+              clearStreamHighlight();
+            }
+            return;
+          }
+
+          const streamId = pill.dataset.streamId;
+          if (!streamId || streamId === 'null') return;
+
+          // Toggle selection
+          if (activeStreamId === streamId) {
+            clearStreamHighlight();
+          } else {
+            highlightStream(streamId);
+          }
+        });
+
+        // ESC key handler to clear selection
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && activeStreamId) {
+            clearStreamHighlight();
+            e.preventDefault();
+          }
+
+          // Handle Enter/Space on focused pill
+          if ((e.key === 'Enter' || e.key === ' ') &&
+              e.target.classList.contains('stream-id-pill')) {
+            e.target.click();
+            e.preventDefault();
+          }
+        });
       }
 
       pxStart.addEventListener('click', async () => {
@@ -932,7 +1109,10 @@
 
       // Handle initial hash fragment for tab navigation
       handleInitialHash();
-       
+
+      // Initialize streamId filtering feature
+      initStreamIdFiltering();
+
        // Save proxy configuration when values change
       pxListen.addEventListener('change', saveProxyConfig);
       pxHost.addEventListener('change', saveProxyConfig);
