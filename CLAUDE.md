@@ -4,112 +4,150 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WireTap is a Java-based network protocol analyzer and packet capture tool designed for reverse engineering and analyzing the AOL protocol. It consists of a JavaFX GUI application, a web interface, and command-line tools for PCAP analysis.
+WireTap is a Java-based network protocol analyzer and packet capture tool designed for reverse engineering and analyzing the AOL protocol. It provides real-time traffic analysis, PCAP file processing, and both GUI and headless modes.
 
 ## Build System & Commands
 
-This is a Maven-based Java 17 project using JavaFX and GraalVM for native compilation.
+Maven-based Java 17 project using JavaFX 17.0.2 and GraalVM for native compilation.
 
-### Common Commands
+### Essential Commands
 
 ```bash
-# Build the project
+# Build and test
 mvn clean compile
+mvn test                     # Run JUnit tests (41 tests in com.wiretap.core package)
+mvn clean package            # Create shaded JAR
 
-# Create shaded JAR
-mvn clean package
+# Run application
+java -jar target/wiretap-1.0.0.jar                    # GUI mode
+java -jar target/wiretap-1.0.0.jar --no-gui           # Headless mode
+java -jar target/wiretap-1.0.0.jar --dynamic-port     # Random port 20000-65535
 
-# Run the application (GUI mode)
-java -jar target/wiretap-1.0.0.jar
-
-# Run in headless mode
-java -jar target/wiretap-1.0.0.jar --no-gui
-
-# Run with dynamic port selection (20000-65535)
-java -jar target/wiretap-1.0.0.jar --dynamic-port
-
-# Analyze PCAP files
+# PCAP analysis
 java -jar target/wiretap-1.0.0.jar --pcap capture.pcap --out analysis
-
-# Analyze PCAP with full frame storage and pretty printing
 java -jar target/wiretap-1.0.0.jar --pcap capture.pcap --out analysis --store-full --pretty
 
-# Build native macOS executable (requires GraalVM and Maven 3.8.8)
-./build-native-macos.sh
+# Native compilation (macOS ARM64)
+./build-native-macos.sh      # Requires GraalVM CE 17 and Maven 3.8.8
 ```
 
+## Critical Architecture Information
+
+### Centralized Frame Parsing (Post-Refactoring)
+
+**IMPORTANT**: As of October 2025, frame parsing logic has been **consolidated** into a single location. All frame parsing **MUST** use the centralized utilities in `com.wiretap.core`:
+
+- **`FrameParser.java`**: Single source of truth for all frame parsing
+  - `parse()`: Full analysis with CRC validation, timestamp handling, payload sampling
+  - `parseLite()`: Lightweight real-time parsing for live streams
+- **`HexUtil.java`**: All hex conversion and formatting utilities
+- **`Crc16Ibm.java`**: CRC-16 IBM calculation
+
+**Never duplicate frame parsing logic**. The refactoring eliminated 950+ lines of duplicated code across 5 locations. Any protocol changes must update `FrameParser` only.
+
+### AOL Frame Format
+
+Binary structure: `[5A][CRC 2B][Len 2B][TX][RX][Type][Token 2B][StreamID 2B][Payload...]`
+
+- Byte 0: Magic `0x5A`
+- Bytes 1-2: CRC-16 IBM checksum
+- Bytes 3-4: Payload length (big-endian)
+- Bytes 5-6: TX/RX identifiers
+- Byte 7: Frame type
+- Bytes 8-9: Token (ASCII or hex)
+- Bytes 10-11: StreamID
+- Bytes 12+: Payload
+
+### Core Processing Paths
+
+1. **PCAP Upload**: User uploads PCAP → `AolExtractor` → `FrameParser.parse()` → JSONL export
+2. **Live Proxy**: TCP traffic on port 5190 → `TcpProxyService` → `FrameParser.parseLite()` → WebSocket → Web UI
+3. **Real-time Sniffer**: Network capture → `RealtimeAolSniffer` → `FrameParser.parseLite()` → Live analysis
+
+### Package Structure
+
+- **`com.wiretap.core.*`**: Centralized utilities (FrameParser, HexUtil, Crc16Ibm, JsonUtil)
+- **`com.wiretap.extractor.*`**: Protocol extraction (AolExtractor, P3Extractor, FrameSummary)
+- **`com.wiretap.extractor.io.*`**: I/O handling (FullFrameStore, SummaryWriter)
+- **`com.wiretap.aol.extractor.*`**: AOL-specific decoders (EthernetDecoder, LinkDecoder, TcpReassembler)
+- **`com.wiretap.web.*`**: HTTP server (HttpApp), TCP proxy (TcpProxyService), GUI (ServerGUI), WebSocket (LiveBus)
+- **`com.wiretap.tools.*`**: CLI tools (RealtimeAolSniffer, PcapReader, ProtocolIndexBuilder)
+
+**Note**: The P3 package was removed during Phase 5 cleanup. Use AOL decoders for all protocol processing.
+
+### Web Interface Architecture
+
+Single-page application in `src/main/resources/public/index.html`:
+
+- **Vanilla JavaScript** (no frameworks)
+- **Server-Sent Events (SSE)** for live frame streaming (`/api/live`)
+- **REST API** endpoints:
+  - `/api/upload` - PCAP file upload (streaming JSONL response)
+  - `/api/proxy/start`, `/api/proxy/stop`, `/api/proxy/status`
+  - `/api/session/frames` - Fetch all session frames
+  - `/api/proxy-config` - Persist proxy configuration
+
+**StreamID Highlighting Feature**: Click streamId pills to highlight all matching frames. Hover shows preview. Implementation uses CSS classes (`.stream-selected`, `.stream-highlighted`, `.stream-hover-preview`) with pure JavaScript event handlers. Only pills are highlighted, not frame containers.
+
+### Data Model
+
+**`FrameSummary`** is the core data structure containing:
+- `dir`: Direction (C->S or S->C)
+- `ts`: Timestamp (Unix epoch seconds)
+- `len`: Payload length
+- `type`, `tx`, `rx`: Frame header bytes
+- `token`: 2-byte token (ASCII or hex)
+- `streamId`: 2-byte stream identifier (e.g., "0x2a00")
+- `crcOk`: Boolean CRC validation result
+- `fullHex`: Optional full frame hex dump
+- `ref`: SHA-1 hash for deduplication
+
 ### Testing
-No test framework is configured in this project. Manual testing should be done by running the application.
 
-## Architecture Overview
-
-### Core Components
-
-- **Main.java**: Entry point with command-line argument parsing and application lifecycle management
-- **HttpApp**: Web server providing REST API and web interface on port 8080 (default)
-- **TcpProxyService**: TCP proxy server for intercepting AOL traffic on port 5190 (default)
-- **ServerGUI**: JavaFX-based GUI for desktop application
-
-### Protocol Analysis
-
-The project supports two protocol stacks:
-- **AOL Protocol**: Located in `com.wiretap.aol.*` package
-- **P3 Protocol**: Located in `com.wiretap.p3.*` package (newer implementation)
-
-Each protocol stack includes:
-- **Extractors**: Parse network traffic (`AolExtractor`, `P3Extractor`)
-- **Decoders**: Handle link/ethernet/TCP layers (`LinkDecoder`, `EthernetDecoder`, `TcpReassembler`)
-- **Core utilities**: CRC calculation and hex utilities
-
-### Data Flow
-
-1. **Input Sources**: PCAP files or live TCP proxy traffic
-2. **Protocol Extraction**: Raw packets → structured frames using extractors
-3. **Storage**: Frames stored as JSONL format with optional full frame storage
-4. **Output**: Web interface, GUI display, or file export
-
-### Key Packages
-
-- `com.wiretap.extractor.*`: Protocol extraction and frame analysis
-- `com.wiretap.extractor.io.*`: I/O handling for frames and summaries
-- `com.wiretap.web.*`: HTTP server, proxy service, and GUI
-- `com.wiretap.tools.*`: Command-line utilities and real-time sniffers
-- `com.wiretap.core.*`: Shared utilities (JSON handling)
+- **JUnit 5.10.0** framework
+- **41 comprehensive tests** in `src/test/java/com/wiretap/core/`
+  - `FrameParserTest.java`: 26 tests covering parse() and parseLite()
+  - `HexUtilTest.java`: 15 tests for hex utilities
+- All tests must pass before committing: `mvn test`
 
 ## Native Compilation
 
-The project uses GluonFX for native compilation with GraalVM.
+GluonFX + GraalVM for macOS ARM64 builds.
 
-### Requirements
-- GraalVM CE 17 (expected at `/Library/Java/JavaVirtualMachines/graalvm-ce-java17-22.3.1/Contents/Home`)
-- Maven 3.8.8 (auto-downloaded by build script if not present)
-- macOS ARM64 (Apple Silicon) for macOS builds
+**Prerequisites**:
+- GraalVM CE 17 at `/Library/Java/JavaVirtualMachines/graalvm-ce-java17-22.3.1/Contents/Home`
+- Maven 3.8.8 (auto-downloaded by build script)
+- macOS ARM64 (Apple Silicon)
 
-### Build Process
-The `build-native-macos.sh` script:
-1. Downloads Maven 3.8.8 if needed
-2. Builds native executable using GluonFX
-3. Creates macOS app bundle (WireTap.app)
-4. Creates distribution zip (WireTap-macOS.app.zip)
-5. Removes quarantine attributes automatically
+**Build Process**:
+```bash
+./build-native-macos.sh      # Creates WireTap.app and WireTap-macOS.app.zip
+```
 
-### Key Files
-- `build-native-macos.sh`: Native build script for macOS ARM64
+**Key Configuration Files**:
 - `src/main/resources/reflect-config.json`: GraalVM reflection configuration
-- `src/main/resources/bundles.properties`: GluonFX bundle configuration
-- `src/main/resources/icons/icon.icns`: macOS icon (copied to app bundle)
+- `src/main/resources/bundles.properties`: GluonFX resource bundles
+- `src/main/resources/icons/icon.icns`: macOS app icon
 
 ## Data Formats
 
-- **JSONL**: Primary format for session data export/import
-- **PCAP**: Standard packet capture format for input
-- **JSON**: Configuration and API responses
+- **JSONL (JSON Lines)**: Primary export/import format - one JSON object per line
+- **PCAP**: Standard packet capture format (Wireshark, tcpdump compatible)
+- **Output**: `{basename}.summary.jsonl` for frame summaries, `{basename}.frames.json.gz` for full frames
 
-## Development Notes
+## Important Development Notes
 
-- The application auto-detects headless environments and switches to CLI mode
-- GUI uses dynamic port selection (20000-65535) when `--dynamic-port` flag is used
-- Two protocol implementations exist (AOL and P3) - P3 appears to be the newer version
-- The project includes both real-time sniffing and offline PCAP analysis capabilities
-- Session data output format: `{basename}.summary.jsonl.gz` for summaries, `{basename}.frames.json.gz` for full frames
-- Application version in Info.plist (1.2.4) is separate from Maven version (1.0.0)
+- **Headless Detection**: Application auto-detects headless environments and switches to CLI mode
+- **Dynamic Ports**: GUI uses `--dynamic-port` flag for random port selection (20000-65535)
+- **Session Persistence**: Live proxy sessions are stored server-side and can be exported as JSONL
+- **Version Discrepancy**: Info.plist shows 1.2.4, Maven POM shows 1.0.0 (intentional)
+- **No Framework Lock-in**: Web UI is vanilla JS/CSS for simplicity and maintainability
+
+## Refactoring History
+
+In October 2025, a 5-phase refactoring eliminated critical technical debt:
+- Phase 1-4: Consolidated 5 duplicate parsing implementations into `FrameParser`
+- Phase 5: Deleted 700+ lines of dead code (P3 package, legacy utilities)
+- Result: 239 lines of duplicate code eliminated, 41 unit tests added, zero regressions
+
+See `REFACTORING_REPORT.md` for complete details.
