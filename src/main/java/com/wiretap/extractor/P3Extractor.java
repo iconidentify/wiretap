@@ -4,10 +4,10 @@ import com.wiretap.core.FrameParser;
 import com.wiretap.core.HexUtil;
 import com.wiretap.extractor.io.FullFrameStore;
 import com.wiretap.extractor.io.SummaryWriter;
-import com.wiretap.p3.extractor.EthernetDecoder;
-import com.wiretap.p3.extractor.LinkDecoder;
+import com.wiretap.aol.extractor.EthernetDecoder;
+import com.wiretap.aol.extractor.LinkDecoder;
+import com.wiretap.aol.extractor.TcpReassembler;
 import com.wiretap.tools.PcapReader;
-import com.wiretap.p3.extractor.TcpReassembler;
 
 import java.time.Instant;
 import java.util.*;

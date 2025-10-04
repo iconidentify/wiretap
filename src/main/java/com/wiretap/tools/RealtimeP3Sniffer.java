@@ -1,7 +1,7 @@
 package com.wiretap.tools;
 
-import com.wiretap.p3.extractor.EthernetDecoder;
-import com.wiretap.p3.extractor.LinkDecoder;
+import com.wiretap.aol.extractor.EthernetDecoder;
+import com.wiretap.aol.extractor.LinkDecoder;
 import com.wiretap.core.FrameParser;
 import com.wiretap.core.HexUtil;
 import com.wiretap.extractor.FrameSummary;
