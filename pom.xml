@@ -90,6 +90,14 @@
       <artifactId>javafx-graphics</artifactId>
       <version>${javafx.version}</version>
     </dependency>
+
+    <!-- Test Dependencies -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
 
