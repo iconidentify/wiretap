@@ -113,12 +113,6 @@
         font-weight: 600;
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
       }
-      .stream-selected::after {
-        content: "×";
-        margin-left: 4px;
-        opacity: 0.8;
-        font-size: 14px;
-      }
       .stream-highlighted {
         background: rgba(59, 130, 246, 0.15) !important;
         border-color: var(--primary) !important;
@@ -126,35 +120,15 @@
         font-weight: 500;
         animation: pulse-highlight 0.4s ease-out;
       }
-      .frame.stream-match {
-        background: rgba(59, 130, 246, 0.05);
-        border-color: var(--primary);
-        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
-      }
-      .frame.stream-match::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 4px;
-        background: var(--primary);
-        border-radius: 2px 0 0 2px;
-        animation: slide-in 0.3s ease-out;
+      .stream-hover-preview {
+        background: rgba(59, 130, 246, 0.12) !important;
+        border-color: rgba(59, 130, 246, 0.5) !important;
+        color: var(--primary) !important;
+        transition: all 0.15s ease;
       }
       @keyframes pulse-highlight {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.05); }
-      }
-      @keyframes slide-in {
-        from {
-          opacity: 0;
-          transform: translateX(-4px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
       }
       .sr-only {
         position: absolute;
@@ -765,8 +739,9 @@
 
       // StreamId filtering functions
       function highlightStream(streamId) {
-        // Clear any existing highlights
+        // Clear any existing highlights and hover previews
         clearStreamHighlight();
+        clearHoverPreview();
 
         // Set new active stream
         activeStreamId = streamId;
@@ -777,20 +752,13 @@
 
         if (matchCount === 0) return;
 
-        // Highlight pills and frames
+        // Highlight pills only (no frame highlighting)
         allPills.forEach((pill, index) => {
-          const frame = pill.closest('.frame');
-
           // First pill gets selected state, others get highlighted state
           if (index === 0) {
             pill.classList.add('stream-selected');
           } else {
             pill.classList.add('stream-highlighted');
-          }
-
-          // Highlight the frame container
-          if (frame) {
-            frame.classList.add('stream-match');
           }
         });
 
@@ -806,12 +774,31 @@
         document.querySelectorAll('.stream-selected, .stream-highlighted')
           .forEach(el => el.classList.remove('stream-selected', 'stream-highlighted'));
 
-        // Remove highlight classes from frames
-        document.querySelectorAll('.frame.stream-match')
-          .forEach(frame => frame.classList.remove('stream-match'));
-
         // Reset state
         activeStreamId = null;
+      }
+
+      function showHoverPreview(streamId) {
+        // Don't show hover preview if this streamId is already selected
+        if (activeStreamId === streamId) return;
+
+        // Clear any existing hover previews
+        clearHoverPreview();
+
+        // Find all pills with this streamId and add hover preview class
+        const allPills = document.querySelectorAll(`[data-stream-id="${streamId}"]`);
+        allPills.forEach(pill => {
+          // Don't add hover class to selected pills
+          if (!pill.classList.contains('stream-selected')) {
+            pill.classList.add('stream-hover-preview');
+          }
+        });
+      }
+
+      function clearHoverPreview() {
+        // Remove hover preview class from all pills
+        document.querySelectorAll('.stream-hover-preview')
+          .forEach(el => el.classList.remove('stream-hover-preview'));
       }
 
       function initStreamIdFiltering() {
@@ -836,6 +823,26 @@
           } else {
             highlightStream(streamId);
           }
+        });
+
+        // Hover preview handler
+        document.addEventListener('mouseover', (e) => {
+          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+          if (!pill) return;
+
+          const streamId = pill.dataset.streamId;
+          if (!streamId || streamId === 'null') return;
+
+          // Show hover preview for this streamId
+          showHoverPreview(streamId);
+        });
+
+        // Clear hover preview when mouse leaves
+        document.addEventListener('mouseout', (e) => {
+          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+          if (!pill) return;
+
+          clearHoverPreview();
         });
 
         // ESC key handler to clear selection
