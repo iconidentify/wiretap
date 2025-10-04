@@ -209,6 +209,13 @@ public final class P3Extractor {
             char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
             if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) s.token = ""+c1+c2;
             else s.token = "0x" + hexLower(f[off+8] & 0xFF) + hexLower(f[off+9] & 0xFF);
+
+            // Extract streamId (2 bytes after token at offset 10-11)
+            if (length >= 12) {
+                int b1 = f[off+10] & 0xFF;
+                int b2 = f[off+11] & 0xFF;
+                s.streamId = "0x" + hexLower(b1) + hexLower(b2);
+            }
         } else if (length == 9 && (f[off] & 0xFF) == 0x5A) {
             s.token = "9B";
         }

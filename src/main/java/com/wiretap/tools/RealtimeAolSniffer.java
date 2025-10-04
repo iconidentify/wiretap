@@ -109,6 +109,10 @@ public final class RealtimeAolSniffer {
             char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
             if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) s.token = ""+c1+c2;
             else s.token = String.format("0x%02x%02x", f[off+8] & 0xFF, f[off+9] & 0xFF);
+            // Extract streamId (2 bytes after token at offset 10-11)
+            if (length >= 12) {
+                s.streamId = String.format("0x%02x%02x", f[off+10] & 0xFF, f[off+11] & 0xFF);
+            }
         } else if (length == 9 && (f[off] & 0xFF) == 0x5A) { s.token = "9B"; }
         s.fullHex = bytesToHexLower(f, off, length);
         return s;

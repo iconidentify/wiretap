@@ -4,6 +4,7 @@ public final class FrameSummary {
     public String dir;
     public String ts;
     public String token;
+    public String streamId;
     public String type;
     public String tx;
     public String rx;
@@ -35,6 +36,7 @@ public final class FrameSummary {
         if (dir != null) est += 8 + dir.length();
         if (ts != null) est += 8 + ts.length();
         if (token != null) est += 10 + token.length();
+        if (streamId != null) est += 14 + streamId.length();
         if (type != null) est += 9 + type.length();
         if (tx != null) est += 7 + tx.length();
         if (rx != null) est += 7 + rx.length();
@@ -57,6 +59,7 @@ public final class FrameSummary {
         if (dir != null) { if (!first) sb.append(comma); add(sb,"dir",dir,""); first = false; }
         if (ts != null) { if (!first) sb.append(comma); add(sb,"ts",ts,""); first = false; }
         if (token != null) { if (!first) sb.append(comma); add(sb,"token",token,""); first = false; }
+        if (streamId != null) { if (!first) sb.append(comma); add(sb,"streamId",streamId,""); first = false; }
         if (type != null) { if (!first) sb.append(comma); add(sb,"type",type,""); first = false; }
         if (tx != null) { if (!first) sb.append(comma); add(sb,"tx",tx,""); first = false; }
         if (rx != null) { if (!first) sb.append(comma); add(sb,"rx",rx,""); first = false; }

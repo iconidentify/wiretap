@@ -56,6 +56,7 @@
       .dir-c2s { color: var(--primary); border-color: rgba(37, 99, 235, 0.3); background: rgba(37, 99, 235, 0.1); }
       .dir-s2c { color: var(--success); border-color: rgba(5, 150, 105, 0.3); background: rgba(5, 150, 105, 0.1); }
       .prot { color: #0891b2; border-color: rgba(8, 145, 178, 0.3); background: rgba(8, 145, 178, 0.1); }
+      .crc-err { color: rgba(239, 68, 68, 0.7); opacity: 0.8; }
       .popover { position: absolute; z-index: 20; right: 12px; top: 12px; max-width: 520px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 12px 16px; display:none; }
       .popover pre { max-height: 300px; overflow:auto; font-size: 12px; margin:0; background: var(--surface-hover); padding: 8px; border-radius: 4px; }
       .actions { margin-left: auto; display: inline-flex; gap: 6px; }
@@ -445,6 +446,32 @@
         return json;
       }
 
+      function formatTimestamp(ts) {
+        if (!ts) return '';
+        const seconds = parseFloat(ts);
+        const date = new Date(seconds * 1000);
+        const h = date.getUTCHours().toString().padStart(2, '0');
+        const m = date.getUTCMinutes().toString().padStart(2, '0');
+        const s = date.getUTCSeconds().toString().padStart(2, '0');
+        const ms = date.getUTCMilliseconds().toString().padStart(3, '0');
+        return `${h}:${m}:${s}.${ms}`;
+      }
+
+      function extractStreamIdFromHex(obj) {
+        // Return native streamId if present
+        if (obj.streamId) return obj.streamId;
+
+        // Fallback: Extract from fullHex for backward compatibility with old JSONL files
+        if (obj.fullHex && obj.fullHex.length >= 24) {
+          const hex = obj.fullHex.replace(/\s/g, '');
+          if (hex.length >= 24) {
+            // Bytes 10-11 are at hex positions 20-23 (each byte = 2 hex chars)
+            return '0x' + hex.substring(20, 24);
+          }
+        }
+        return null;
+      }
+
       function formatHex(hex) {
         if (!hex) return '';
         const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
@@ -501,18 +528,23 @@
         const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
         const crcOk = hasCrcField ? !!obj.crcOk : true; // default to OK if missing
         const crc = crcOk ? 'CRC OK' : 'CRC ERR';
+        const crcClass = crcOk ? '' : 'crc-err';
         const dirTitle = obj.dir === 'S->C' ? 'Server → Client (from host to client)' : 'Client → Server (from client to host)';
         const crcTitle = crcOk ? 'CRC-16 IBM matches computed value' : 'CRC-16 IBM mismatch (computed != header)';
+        const formattedTs = formatTimestamp(obj.ts);
+        const streamIdValue = extractStreamIdFromHex(obj);
+        const streamIdPill = streamIdValue ? `<span class="pill" title="Stream ID: Identifies the data channel">sid: ${streamIdValue}</span>` : '';
         el.innerHTML = `
           <div class="meta">
             <span class="pill ${dirPillClass}" title="${dirTitle}">${obj.dir}</span>
             <span class="pill" title="Token">token: ${obj.token ?? ''}</span>
+            ${streamIdPill}
             <span class="pill" title="Frame type byte (header[7])">type: ${obj.type ?? ''}</span>
             <span class="pill" title="Transmitter byte (header[5])">tx: ${obj.tx ?? ''}</span>
             <span class="pill" title="Receiver byte (header[6])">rx: ${obj.rx ?? ''}</span>
             <span class="pill" title="Payload length from header">len: ${obj.len ?? ''}</span>
-            <span class="pill ${crcOk ? '' : 'muted'}" title="${crcTitle}">${crc}</span>
-            <span class="pill muted" title="Frame timestamp">ts: ${obj.ts ?? ''}</span>
+            <span class="pill ${crcClass}" title="${crcTitle}">${crc}</span>
+            <span class="pill muted" title="Frame timestamp (raw: ${obj.ts ?? ''})">ts: ${formattedTs || obj.ts || ''}</span>
             <span class="actions">
               <button class="iconbtn" data-act="copy-json">Copy JSON</button>
               <button class="iconbtn" data-act="copy-hex">Copy Hex</button>

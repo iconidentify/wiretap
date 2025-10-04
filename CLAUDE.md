@@ -25,10 +25,16 @@ java -jar target/wiretap-1.0.0.jar
 # Run in headless mode
 java -jar target/wiretap-1.0.0.jar --no-gui
 
+# Run with dynamic port selection (20000-65535)
+java -jar target/wiretap-1.0.0.jar --dynamic-port
+
 # Analyze PCAP files
 java -jar target/wiretap-1.0.0.jar --pcap capture.pcap --out analysis
 
-# Build native macOS executable (requires GraalVM)
+# Analyze PCAP with full frame storage and pretty printing
+java -jar target/wiretap-1.0.0.jar --pcap capture.pcap --out analysis --store-full --pretty
+
+# Build native macOS executable (requires GraalVM and Maven 3.8.8)
 ./build-native-macos.sh
 ```
 
@@ -72,10 +78,26 @@ Each protocol stack includes:
 
 ## Native Compilation
 
-The project uses GluonFX for native compilation with GraalVM. Key files:
+The project uses GluonFX for native compilation with GraalVM.
+
+### Requirements
+- GraalVM CE 17 (expected at `/Library/Java/JavaVirtualMachines/graalvm-ce-java17-22.3.1/Contents/Home`)
+- Maven 3.8.8 (auto-downloaded by build script if not present)
+- macOS ARM64 (Apple Silicon) for macOS builds
+
+### Build Process
+The `build-native-macos.sh` script:
+1. Downloads Maven 3.8.8 if needed
+2. Builds native executable using GluonFX
+3. Creates macOS app bundle (WireTap.app)
+4. Creates distribution zip (WireTap-macOS.app.zip)
+5. Removes quarantine attributes automatically
+
+### Key Files
 - `build-native-macos.sh`: Native build script for macOS ARM64
 - `src/main/resources/reflect-config.json`: GraalVM reflection configuration
 - `src/main/resources/bundles.properties`: GluonFX bundle configuration
+- `src/main/resources/icons/icon.icns`: macOS icon (copied to app bundle)
 
 ## Data Formats
 
@@ -86,6 +108,8 @@ The project uses GluonFX for native compilation with GraalVM. Key files:
 ## Development Notes
 
 - The application auto-detects headless environments and switches to CLI mode
-- GUI uses dynamic port selection (20000-65535) to avoid conflicts
+- GUI uses dynamic port selection (20000-65535) when `--dynamic-port` flag is used
 - Two protocol implementations exist (AOL and P3) - P3 appears to be the newer version
 - The project includes both real-time sniffing and offline PCAP analysis capabilities
+- Session data output format: `{basename}.summary.jsonl.gz` for summaries, `{basename}.frames.json.gz` for full frames
+- Application version in Info.plist (1.2.4) is separate from Maven version (1.0.0)
