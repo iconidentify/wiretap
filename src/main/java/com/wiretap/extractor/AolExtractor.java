@@ -1,7 +1,7 @@
 package com.wiretap.extractor;
 
-import com.wiretap.aol.core.Crc16Ibm;
-import com.wiretap.aol.core.Hex;
+import com.wiretap.core.FrameParser;
+import com.wiretap.core.HexUtil;
 import com.wiretap.extractor.io.FullFrameStore;
 import com.wiretap.extractor.io.SummaryWriter;
 import com.wiretap.aol.extractor.EthernetDecoder;
@@ -9,8 +9,6 @@ import com.wiretap.aol.extractor.LinkDecoder;
 import com.wiretap.tools.PcapReader;
 import com.wiretap.aol.extractor.TcpReassembler;
 
-import java.security.MessageDigest;
-import java.text.DecimalFormat;
 import java.time.Instant;
 import java.util.*;
 
@@ -20,7 +18,6 @@ import java.util.*;
 public final class AolExtractor {
 
     private static final int AOL_MAGIC = 0x5A;
-    private static final DecimalFormat TS_FMT = new DecimalFormat("0.000000");
 
     private static final class DirKey {
         final String src, dst;
@@ -116,7 +113,7 @@ public final class AolExtractor {
             java.util.logging.Logger.getLogger("pcap-extractor").info("  - saw IPv6: " + sawIpv6);
             java.util.logging.Logger.getLogger("pcap-extractor").info("  - saw TCP port " + serverPort + ": " + sawTcpPort);
             if (firstPacketBytes != null) {
-                java.util.logging.Logger.getLogger("pcap-extractor").info("  - first packet bytes: " + Hex.bytesToHexLower(firstPacketBytes, 0, Math.min(firstPacketBytes.length, 32)));
+                java.util.logging.Logger.getLogger("pcap-extractor").info("  - first packet bytes: " + HexUtil.bytesToHexLower(firstPacketBytes, 0, Math.min(firstPacketBytes.length, 32)));
             }
             if (!sawIpv4 && !sawIpv6) {
                 java.util.logging.Logger.getLogger("pcap-extractor").info("  - HINT: No IPv4/IPv6 packets found - check linktype and packet format");
@@ -197,101 +194,13 @@ public final class AolExtractor {
     }
 
     private static FrameSummary summarize(String dir, Instant ts, byte[] f, int off, int length) {
-        FrameSummary s = new FrameSummary();
-        s.dir = dir;
-        s.ts  = TS_FMT.format(ts.getEpochSecond() + (ts.getNano() / 1_000_000_000.0));
-        s.len = length >= 6 ? (((f[off+3] & 0xFF) << 8) | (f[off+4] & 0xFF)) : 0;
-        s.type = length > 7 ? hexByteUpper(f[off+7] & 0xFF) : "n/a";
-        s.tx = length > 5 ? hexByteUpper(f[off+5] & 0xFF) : "n/a";
-        s.rx = length > 6 ? hexByteUpper(f[off+6] & 0xFF) : "n/a";
-
-        if (length >= 10 && (f[off] & 0xFF) == 0x5A) {
-            char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
-            if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) s.token = ""+c1+c2;
-            else s.token = "0x" + hexLower(f[off+8] & 0xFF) + hexLower(f[off+9] & 0xFF);
-
-            // Extract streamId (2 bytes after token at offset 10-11)
-            if (length >= 12) {
-                int b1 = f[off+10] & 0xFF;
-                int b2 = f[off+11] & 0xFF;
-                s.streamId = "0x" + hexLower(b1) + hexLower(b2);
-            }
-        } else if (length == 9 && (f[off] & 0xFF) == 0x5A) {
-            s.token = "9B";
-        }
-
-        if (length >= 5) {
-            int hdrBE = ((f[off+1]&0xFF) << 8) | (f[off+2] & 0xFF);
-            int hdrLE = ((f[off+2]&0xFF) << 8) | (f[off+1] & 0xFF);
-            // Variant A: bytes [len_hi .. end-2] (legacy)
-            int calcA = Crc16Ibm.compute(f, off + 3, length - 4);
-            // Variant B: bytes [tx .. end-2] (skip len); often used when len includes tx/rx/type/token
-            int calcB = length > 6 ? Crc16Ibm.compute(f, off + 5, length - 6) : calcA;
-            boolean ok = (calcA == hdrBE) || (calcA == hdrLE) || (calcB == hdrBE) || (calcB == hdrLE);
-            s.crcOk = ok;
-            if (!ok) {
-                s.hasError = true;
-                s.errorCodes = s.errorCodes == null ? "CRC" : s.errorCodes + ",CRC";
-            }
-        }
-
-        s.fullHex = Hex.bytesToHexLower(f, off, length);
-
-        // Payload sampling for UI enrichment
-        if (length > 6) {
-            int payStart = off + 6;
-            int payLen = Math.max(0, length - 6);
-            int sample = Math.min(payLen, 256);
-            if (sample > 0) {
-                s.payloadHex = Hex.bytesToHexLower(f, payStart, sample);
-                s.payloadText = printable(f, payStart, payStart + Math.min(sample, 96));
-            }
-            // legacy preview: keep short printable for AT frames
-            if (length >= 12 && "AT".equals(s.token)) {
-                int payEnd = Math.min(off + length, payStart + 64);
-                s.preview = printable(f, payStart, payEnd);
-            }
-        }
-
-        return s;
-    }
-
-    private static String printable(byte[] f, int start, int end) {
-        StringBuilder sb = new StringBuilder(end - start);
-        for (int i = start; i < end; i++) {
-            int b = f[i] & 0xFF;
-            sb.append(b >= 32 && b < 127 ? (char)b : '.');
-        }
-        return sb.toString();
-    }
-
-    private static String hexByteUpper(int b) {
-        final char[] HEX = "0123456789ABCDEF".toCharArray();
-        char[] out = new char[4];
-        out[0] = '0'; out[1] = 'x';
-        out[2] = HEX[(b >>> 4) & 0xF];
-        out[3] = HEX[b & 0xF];
-        return new String(out);
-    }
-
-    private static String hexLower(int b) {
-        final char[] HEX = "0123456789abcdef".toCharArray();
-        char[] out = new char[2];
-        out[0] = HEX[(b >>> 4) & 0xF];
-        out[1] = HEX[b & 0xF];
-        return new String(out);
+        // Use centralized FrameParser instead of duplicated logic
+        return FrameParser.parse(dir, ts, f, off, length);
     }
 
     private static String sha1Hex(String hex) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-1");
-        md.update(hex.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-        byte[] d = md.digest();
-        StringBuilder sb = new StringBuilder(d.length*2);
-        for (byte x : d) {
-            sb.append(Character.forDigit((x >> 4) & 0xF, 16));
-            sb.append(Character.forDigit(x & 0xF, 16));
-        }
-        return sb.toString();
+        // Delegate to centralized HexUtil
+        return HexUtil.sha1Hex(hex);
     }
 }
 
