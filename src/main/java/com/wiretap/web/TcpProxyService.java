@@ -1,5 +1,7 @@
 package com.wiretap.web;
 
+import com.wiretap.core.FrameParser;
+import com.wiretap.core.HexUtil;
 import com.wiretap.extractor.FrameSummary;
 
 import java.io.Closeable;
@@ -157,34 +159,13 @@ final class TcpProxyService implements Closeable {
     }
 
     private static FrameSummary summarize(String dir, byte[] f, int off, int length) {
-        FrameSummary s = new FrameSummary();
-        s.dir = dir;
-        s.ts  = String.valueOf(System.currentTimeMillis()/1000.0);
-        s.len = length >= 6 ? (((f[off+3] & 0xFF) << 8) | (f[off+4] & 0xFF)) : 0;
-        s.type = length > 7 ? String.format("0x%02X", f[off+7] & 0xFF) : "n/a";
-        s.tx = length > 5 ? String.format("0x%02X", f[off+5] & 0xFF) : "n/a";
-        s.rx = length > 6 ? String.format("0x%02X", f[off+6] & 0xFF) : "n/a";
-        if (length >= 10 && (f[off] & 0xFF) == 0x5A) {
-            char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
-            if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) s.token = ""+c1+c2;
-            else s.token = String.format("0x%02x%02x", f[off+8] & 0xFF, f[off+9] & 0xFF);
-            // Extract streamId (2 bytes after token at offset 10-11)
-            if (length >= 12) {
-                s.streamId = String.format("0x%02x%02x", f[off+10] & 0xFF, f[off+11] & 0xFF);
-            }
-        } else if (length == 9 && (f[off] & 0xFF) == 0x5A) { s.token = "9B"; }
-        s.fullHex = bytesToHexLower(f, off, length);
-        return s;
+        // Use centralized FrameParser.parseLite() for real-time parsing
+        return FrameParser.parseLite(dir, f, off, length);
     }
 
     private static String bytesToHexLower(byte[] a, int off, int len) {
-        final char[] HEX = "0123456789abcdef".toCharArray();
-        StringBuilder sb = new StringBuilder(len * 2);
-        for (int i = 0; i < len; i++) {
-            int b = a[off + i] & 0xFF;
-            sb.append(HEX[(b >>> 4) & 0xF]).append(HEX[b & 0xF]);
-        }
-        return sb.toString();
+        // Delegate to centralized HexUtil
+        return HexUtil.bytesToHexLower(a, off, len);
     }
 }
 
