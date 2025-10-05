@@ -29,6 +29,9 @@ public final class FrameSummary {
     public Boolean hasError;    // true if any anomaly detected
     public String errorCodes;   // comma-separated error codes (e.g., "CRC")
 
+    // FDO decompilation
+    public String fdoSource;    // Decompiled FDO source code or formatted data frame info
+
     public String toJson(boolean pretty) {
         String q = "\"";
         String comma = pretty ? ", " : ",";
@@ -52,6 +55,7 @@ public final class FrameSummary {
         if (tokenName != null) est += 14 + tokenName.length();
         if (tokenDesc != null) est += 14 + tokenDesc.length();
         if (docRef != null) est += 12 + docRef.length();
+        if (fdoSource != null) est += 14 + fdoSource.length();
         StringBuilder sb = new StringBuilder(Math.min(est, 4096));
         sb.append("{");
         boolean first = true;
@@ -80,6 +84,7 @@ public final class FrameSummary {
         if (docRef != null) { sb.append(comma); add(sb,"docRef",docRef,""); }
         if (hasError != null) { sb.append(comma); sb.append(q).append("hasError").append(q).append(":").append(hasError); }
         if (errorCodes != null) { sb.append(comma); add(sb,"errorCodes",errorCodes,""); }
+        if (fdoSource != null) { sb.append(comma); add(sb,"fdoSource",fdoSource,""); }
 
         sb.append("}");
         return sb.toString();

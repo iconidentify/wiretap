@@ -1,5 +1,7 @@
 package com.wiretap.tools;
 
+import com.wiretap.core.WireTapLog;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -133,9 +135,9 @@ public final class ProtocolIndexBuilder {
         writeAtoms(protoDir.resolve("atoms.jsonl"), atoms);
         writeTokens(protoDir.resolve("tokens.json"), tokens);
 
-        System.out.println("Wrote: " + protoDir.resolve("protocols.json").toAbsolutePath());
-        System.out.println("Wrote: " + protoDir.resolve("atoms.jsonl").toAbsolutePath());
-        System.out.println("Wrote: " + protoDir.resolve("tokens.json").toAbsolutePath());
+        WireTapLog.debug("Wrote: " + protoDir.resolve("protocols.json").toAbsolutePath());
+        WireTapLog.debug("Wrote: " + protoDir.resolve("atoms.jsonl").toAbsolutePath());
+        WireTapLog.debug("Wrote: " + protoDir.resolve("tokens.json").toAbsolutePath());
     }
 
     private static void parseTokens2001(Path file, Map<String, TokenInfo> tokens) throws IOException {

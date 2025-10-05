@@ -22,6 +22,8 @@ A network protocol analyzer and packet capture tool designed specifically for re
 - **Web Interface** - Browser-based dashboard for remote access
 - **JSONL Export/Import** - Save and load analysis sessions
 - **TCP Proxy** - Intercept and analyze AOL network traffic
+- **AtomForge Integration** - On-demand FDO decompilation for reverse engineering
+- **Verbose Logging** - Optional debug output for troubleshooting
 
 ## Running the Application
 
@@ -53,6 +55,7 @@ wiretap-windows-x64.exe
 - `--pcap <file>` - Analyze PCAP or JSONL file
 - `--out <dir>` - Output directory for analysis
 - `--pretty` - Pretty-print JSON output
+- `--verbose` or `-v` - Enable verbose debug logging
 
 ## Usage Examples
 
@@ -69,6 +72,13 @@ wiretap-windows-x64.exe
 ### Analyze PCAP File
 ```bash
 ./wiretap-macos-arm64 --pcap capture.pcap --out analysis
+```
+
+### Enable Verbose Logging
+```bash
+./wiretap-macos-arm64 --verbose
+# or
+./wiretap-macos-arm64 -v
 ```
 
 ## JSONL Format
@@ -102,6 +112,17 @@ WireTap can process standard PCAP files captured by tools like Wireshark, tcpdum
 # Save analysis results
 ./wiretap-macos-arm64 --pcap network_capture.pcap --out analysis_results
 ```
+
+## AtomForge Integration
+
+WireTap integrates with [AtomForge](https://github.com/iconidentify/atom-forge) to provide on-demand FDO (File Description Object) decompilation. This allows you to view the decompiled source code of AOL protocol frames directly in the web interface.
+
+### Setup:
+1. Install and run AtomForge on `http://localhost:8000`
+2. WireTap will automatically detect the AtomForge service
+3. Click "Show FDO" on any frame in the web interface to decompile it
+
+The GUI displays AtomForge connection status and version information when available.
 
 ## License
 

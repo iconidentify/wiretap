@@ -1,9 +1,13 @@
 package com.wiretap.web;
 
+import com.wiretap.core.WireTapLog;
 import com.wiretap.extractor.AolExtractor;
+import com.wiretap.extractor.FrameSummary;
 import com.wiretap.extractor.io.SummaryWriter;
 import com.wiretap.extractor.io.WriterSummaryWriter;
 import com.wiretap.core.JsonUtil;
+import com.wiretap.services.atomforge.AtomForgeService;
+import com.wiretap.services.atomforge.HealthCheckResult;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -21,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -30,6 +35,7 @@ public final class HttpApp {
     private final int aolServerPort;
     private volatile TcpProxyService proxy;
     private ServerGUI gui;
+    private AtomForgeService atomForgeService;
 
     // Session frame storage - keep recent frames for current session
     private final Queue<String> sessionFrames = new ConcurrentLinkedQueue<>();
@@ -48,6 +54,10 @@ public final class HttpApp {
 
     public void setGUI(ServerGUI gui) {
         this.gui = gui;
+    }
+
+    public void setAtomForgeService(AtomForgeService service) {
+        this.atomForgeService = service;
     }
 
     // Session frame management methods
@@ -166,6 +176,11 @@ public final class HttpApp {
         // Stop the proxy first
         stopProxy();
 
+        // Stop AtomForge service
+        if (atomForgeService != null) {
+            atomForgeService.shutdown();
+        }
+
         // Stop the HTTP server
         if (server != null) {
             server.stop(0); // Stop immediately
@@ -196,6 +211,8 @@ public final class HttpApp {
         server.createContext("/api/proxy/status", new ProxyStatusHandler());
         server.createContext("/api/proxy-config", new ProxyConfigHandler());
         server.createContext("/api/upload", new UploadHandler(aolServerPort));
+        server.createContext("/api/decompile-frame", new DecompileFrameHandler());
+        server.createContext("/api/atomforge/health", new AtomForgeHealthHandler());
         // Use a cached thread pool so long-lived SSE connections don't starve other endpoints
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
@@ -396,7 +413,7 @@ public final class HttpApp {
         }
     }
 
-    private static final class UploadHandler implements HttpHandler {
+    private final class UploadHandler implements HttpHandler {
         private final int aolServerPort;
 
         private UploadHandler(int aolServerPort) {
@@ -653,6 +670,144 @@ public final class HttpApp {
             }
             exchange.close();
         }
+    }
+
+    private final class DecompileFrameHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            try {
+                if (atomForgeService == null) {
+                    WireTapLog.warn("DecompileFrame: AtomForge service not initialized");
+                    sendJson(exchange, "{\"success\":false,\"error\":\"AtomForge service not initialized\"}");
+                    return;
+                }
+
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                WireTapLog.debug("DecompileFrame: Received request, body length: " + (body != null ? body.length() : 0));
+
+                if (body == null || body.trim().isEmpty()) {
+                    WireTapLog.warn("DecompileFrame: Empty request body");
+                    sendJson(exchange, "{\"success\":false,\"error\":\"Empty request body\"}");
+                    return;
+                }
+
+                // Manual JSON parsing to extract fullHex field (avoids broken JsonUtil parser)
+                String fullHex = null;
+                int fullHexIndex = body.indexOf("\"fullHex\"");
+                if (fullHexIndex >= 0) {
+                    int colonIndex = body.indexOf(":", fullHexIndex);
+                    if (colonIndex >= 0) {
+                        int quoteStart = body.indexOf("\"", colonIndex);
+                        if (quoteStart >= 0) {
+                            int quoteEnd = body.indexOf("\"", quoteStart + 1);
+                            if (quoteEnd >= 0) {
+                                fullHex = body.substring(quoteStart + 1, quoteEnd);
+                            }
+                        }
+                    }
+                }
+
+                WireTapLog.debug("DecompileFrame: Extracted fullHex: " + (fullHex != null ? fullHex.substring(0, Math.min(20, fullHex.length())) + "..." : "null"));
+
+                if (fullHex == null || fullHex.isEmpty()) {
+                    WireTapLog.warn("DecompileFrame: Missing or empty fullHex parameter");
+                    sendJson(exchange, "{\"success\":false,\"error\":\"Missing fullHex parameter\"}");
+                    return;
+                }
+
+                // Create minimal FrameSummary with just fullHex
+                FrameSummary frame = new FrameSummary();
+                frame.fullHex = fullHex;
+
+                // Decompile synchronously
+                WireTapLog.debug("DecompileFrame: Calling AtomForge decompileSingleFrame...");
+                String fdoSource = atomForgeService.decompileSingleFrame(frame);
+                WireTapLog.debug("DecompileFrame: Decompilation completed, result length: " + (fdoSource != null ? fdoSource.length() : 0));
+
+                // Return result
+                StringBuilder json = new StringBuilder("{\"success\":true");
+                json.append(",\"fdoSource\":\"").append(escapeJson(fdoSource)).append("\"");
+                json.append("}");
+                sendJson(exchange, json.toString());
+            } catch (Exception e) {
+                String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                WireTapLog.error("DecompileFrame: Error during decompilation", e);
+                sendJson(exchange, "{\"success\":false,\"error\":\"" + escapeJson(errorMsg) + "\"}");
+            } finally {
+                exchange.close();
+            }
+        }
+    }
+
+    private final class AtomForgeHealthHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            if (atomForgeService == null) {
+                sendJson(exchange, "{\"available\":false,\"error\":\"AtomForge service not initialized\"}");
+                return;
+            }
+
+            atomForgeService.checkHealth().thenAccept(result -> {
+                try {
+                    StringBuilder json = new StringBuilder("{\"available\":");
+                    json.append(result.isAvailable());
+                    if (result.isAvailable()) {
+                        json.append(",\"version\":\"").append(escapeJson(result.getVersion())).append("\"");
+                        json.append(",\"daemon_status\":\"").append(escapeJson(result.getDaemonStatus())).append("\"");
+                    } else {
+                        json.append(",\"error\":\"").append(escapeJson(result.getErrorMessage())).append("\"");
+                    }
+                    json.append("}");
+                    sendJson(exchange, json.toString());
+                } catch (Exception e) {
+                    try {
+                        sendStatus(exchange, 500, "Internal Server Error");
+                    } catch (IOException ignored) {}
+                }
+            }).exceptionally(ex -> {
+                try {
+                    sendStatus(exchange, 500, "Health check failed: " + ex.getMessage());
+                } catch (IOException ignored) {}
+                return null;
+            });
+        }
+    }
+
+
+    private void sendJson(HttpExchange exchange, String json) throws IOException {
+        byte[] data = json.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.sendResponseHeaders(200, data.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(data);
+        }
+        exchange.close();
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
 }

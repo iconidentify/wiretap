@@ -1,10 +1,13 @@
 package com.wiretap;
 
+import com.wiretap.core.WireTapLog;
 import com.wiretap.extractor.AolExtractor;
 import com.wiretap.extractor.io.FullFrameStore;
 import com.wiretap.extractor.io.JsonObjectFullFrameStore;
 import com.wiretap.extractor.io.JsonlSummaryWriter;
 import com.wiretap.extractor.io.SummaryWriter;
+import com.wiretap.services.atomforge.AtomForgeService;
+import com.wiretap.services.atomforge.AtomForgeServiceImpl;
 import com.wiretap.web.HttpApp;
 import com.wiretap.web.ServerGUI;
 
@@ -47,6 +50,7 @@ public final class Main {
         boolean noGui = false;
         int httpPort = 8080;
         boolean dynamicPort = false;
+        boolean verbose = false;
 
         // Auto-detect headless environments (like servers, CI, or native binaries without display)
         boolean isHeadless = Boolean.parseBoolean(System.getProperty("java.awt.headless", "false")) ||
@@ -71,20 +75,25 @@ public final class Main {
                 case "--port" -> httpPort = v == null ? httpPort : Integer.parseInt(v);
                 case "--no-gui", "--headless" -> noGui = true;
                 case "--dynamic-port" -> dynamicPort = true;
+                case "--verbose", "-v" -> verbose = true;
                 case "--help", "-h" -> {
                     System.out.println("Usage: java -jar wiretap-1.0.0.jar [options]\n"
-                            + "Server mode (default): java -jar wiretap-1.0.0.jar [--port 8080] [--server-port 5190] [--no-gui] [--dynamic-port]\n"
+                            + "Server mode (default): java -jar wiretap-1.0.0.jar [--port 8080] [--server-port 5190] [--no-gui] [--dynamic-port] [--verbose]\n"
                             + "  --dynamic-port: Use dynamic port selection (20000-65535) for GUI mode\n"
-                            + "PCAP analysis: java -jar wiretap-1.0.0.jar --pcap <file> [--out base] [--server-port 5190] [--pretty] [--store-full]");
+                            + "  --verbose, -v: Enable verbose logging\n"
+                            + "PCAP analysis: java -jar wiretap-1.0.0.jar --pcap <file> [--out base] [--server-port 5190] [--pretty] [--store-full] [--verbose]");
                     return;
                 }
             }
         }
 
+        // Enable verbose logging if requested
+        WireTapLog.setVerbose(verbose);
+
         // Only force headless mode for truly headless environments (not native images with JavaFX)
         if (isHeadless && !pcapMode && !noGui) {
             noGui = true;
-            System.out.println("Headless environment detected, running in headless mode");
+            WireTapLog.debug("Headless environment detected, running in headless mode");
         }
 
         if (pcapMode) {
@@ -110,13 +119,17 @@ public final class Main {
             if (!noGui && !pcapMode && httpPort == 8080) {
                 // In GUI mode with default port, use dynamic port selection
                 httpPort = findAvailablePort();
-                System.out.println("Selected dynamic HTTP port: " + httpPort);
+                WireTapLog.debug("Selected dynamic HTTP port: " + httpPort);
             }
 
             // Start HTTP server first
             HttpApp httpApp = new HttpApp(httpPort, serverPort);
 
-            // Start HTTP server first
+            // Initialize AtomForge service
+            AtomForgeService atomForgeService = new AtomForgeServiceImpl();
+            httpApp.setAtomForgeService(atomForgeService);
+
+            // Start HTTP server
             httpApp.start();
 
             // Start GUI (unless --no-gui flag is used)
@@ -131,27 +144,29 @@ public final class Main {
                     final int finalHttpPort = httpPort;
                     final int finalServerPort = serverPort;
                     final HttpApp finalHttpApp = httpApp;
+                    final AtomForgeService finalAtomForgeService = atomForgeService;
 
                     // Launch JavaFX GUI - use the standard Application.launch approach
                     // but set up the static variables first
                     ServerGUI.setHttpPort(finalHttpPort);
                     ServerGUI.setProxyPort(finalServerPort);
                     ServerGUI.setStaticHttpApp(finalHttpApp);
+                    ServerGUI.setStaticAtomForgeService(finalAtomForgeService);
 
                     Thread guiThread = new Thread(() -> {
                         try {
                             ServerGUI gui = new ServerGUI(finalHttpPort, finalServerPort);
                             gui.setHttpApp(finalHttpApp);
+                            gui.setAtomForgeService(finalAtomForgeService);
                             // Set shutdown callback to exit the main thread
                             gui.setShutdownCallback(() -> {
-                                System.out.println("GUI closed, shutting down application...");
+                                WireTapLog.debug("GUI closed, shutting down application...");
                                 // Interrupt the main thread to exit the application
                                 Thread.currentThread().interrupt();
                             });
                             ServerGUI.launchGUI(finalHttpPort, finalServerPort);
                         } catch (Exception e) {
-                            System.err.println("Failed to launch JavaFX GUI: " + e.getMessage());
-                            e.printStackTrace();
+                            WireTapLog.error("Failed to launch JavaFX GUI: " + e.getMessage(), e);
                         }
                     });
                     guiThread.setDaemon(true);
@@ -160,15 +175,15 @@ public final class Main {
                     // Give JavaFX some time to initialize
                     Thread.sleep(2000);
 
-                    System.out.println("JavaFX GUI launched successfully");
+                    WireTapLog.debug("JavaFX GUI launched successfully");
 
                 } catch (Exception e) {
-                    System.err.println("Failed to launch JavaFX GUI: " + e.getMessage());
-                    System.err.println("Running in headless mode instead.");
+                    WireTapLog.error("Failed to launch JavaFX GUI: " + e.getMessage(), e);
+                    WireTapLog.info("Running in headless mode instead.");
                     noGui = true;
                 }
             } else {
-                System.out.println("Running in headless mode (--no-gui)");
+                WireTapLog.debug("Running in headless mode (--no-gui)");
             }
 
             // Keep running until interrupted (GUI will handle its own lifecycle)
@@ -177,18 +192,18 @@ public final class Main {
 
             // Add shutdown hook for graceful shutdown
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("Shutting down WireTap server...");
+                WireTapLog.debug("Shutting down WireTap server...");
             }));
 
             // Keep the main thread alive until GUI closes or interrupted
             try {
                 Thread.currentThread().join();
             } catch (InterruptedException e) {
-                System.out.println("Main thread interrupted, shutting down...");
+                WireTapLog.debug("Main thread interrupted, shutting down...");
             }
 
             // Ensure proper cleanup when exiting
-            System.out.println("Shutting down WireTap server...");
+            WireTapLog.debug("Shutting down WireTap server...");
             if (httpApp != null) {
                 httpApp.shutdown();
             }

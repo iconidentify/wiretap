@@ -2,6 +2,7 @@ package com.wiretap.web;
 
 import com.wiretap.core.FrameParser;
 import com.wiretap.core.HexUtil;
+import com.wiretap.core.WireTapLog;
 import com.wiretap.extractor.FrameSummary;
 
 import java.io.Closeable;
@@ -39,10 +40,10 @@ final class TcpProxyService implements Closeable {
         acceptThread = new Thread(() -> {
             try {
                 serverSocket = new ServerSocket(listenPort);  // Assign to field
-                System.out.println("[AOL-PROXY] listening on :" + listenPort + " -> " + destHost + ":" + destPort);
+                WireTapLog.debug("AOL-PROXY listening on :" + listenPort + " -> " + destHost + ":" + destPort);
                 while (running && !serverSocket.isClosed()) {  // Check closed
                     Socket client = serverSocket.accept();
-                    System.out.println("[AOL-PROXY] client connected: " + client.getRemoteSocketAddress());
+                    WireTapLog.debug("AOL-PROXY client connected: " + client.getRemoteSocketAddress());
                     Socket serverSock = new Socket();
                     serverSock.connect(new InetSocketAddress(destHost, destPort));
                     Pipe c2s = new Pipe(client, serverSock, true);
@@ -111,7 +112,7 @@ final class TcpProxyService implements Closeable {
             try { out.close(); } catch (IOException ignored) {}
         }
         private void processChunk(byte[] chunk, int off, int len, String dir) {
-            System.out.println("[AOL-PROXY-DBG] " + dir + " chunk: " + len + " bytes");
+            WireTapLog.debug("AOL-PROXY " + dir + " chunk: " + len + " bytes");
             // merge residual + chunk
             byte[] a;
             int start;
@@ -135,14 +136,16 @@ final class TcpProxyService implements Closeable {
                 System.arraycopy(a, start + consumed, residual, 0, leftover);
             }
             if (consumed == 0 && len > 0) {
-                System.out.println("[AOL-PROXY-DBG] No frames in chunk; hex sample: " + bytesToHexLower(chunk, off, Math.min(32, len)));
+                WireTapLog.debug("AOL-PROXY No frames in chunk; hex sample: " + bytesToHexLower(chunk, off, Math.min(32, len)));
             }
         }
     }
 
     private static int scanAol(byte[] a, int start, int end, String dir) {
         int i = start;
-        int frames = 0;
+        int frameCount = 0;
+
+        // Parse and publish frames immediately
         while (i + 6 <= end) {
             if ((a[i] & 0xFF) != 0x5A) { i++; continue; }
             if (i + 10 > end) break;
@@ -151,10 +154,14 @@ final class TcpProxyService implements Closeable {
             if (i + total > end) break;
             FrameSummary fs = summarize(dir, a, i, total);
             LiveBus.publish(fs.toJson(false));
-            frames++;
+            frameCount++;
             i += total;
         }
-        if (frames > 0) System.out.println("[AOL-PROXY] " + dir + " frames: " + frames);
+
+        if (frameCount > 0) {
+            WireTapLog.debug("AOL-PROXY " + dir + " frames: " + frameCount);
+        }
+
         return i - start;
     }
 

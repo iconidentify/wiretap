@@ -49,7 +49,6 @@
       .frame:hover { border-color: var(--border-hover); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
       .frame.c2s { border-left: 4px solid var(--primary); }
       .frame.s2c { border-left: 4px solid var(--success); }
-      .frame.err { outline: 2px solid var(--error); }
       .group-header { position: sticky; top: 0; z-index: 5; background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
       .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; margin-bottom: 8px; }
       .pill { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 11px; }
@@ -141,6 +140,70 @@
         white-space: nowrap;
         border-width: 0;
       }
+
+      /* FDO Modal */
+      #fdo-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      #fdo-modal.active {
+        display: flex;
+      }
+      .fdo-content {
+        background: var(--surface-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      }
+      .fdo-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .fdo-header h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .fdo-body {
+        flex: 1;
+        overflow: auto;
+        padding: 0;
+      }
+      .fdo-source {
+        font-family: ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background: var(--surface);
+        color: var(--text);
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .fdo-actions {
+        padding: 16px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
     </style>
   </head>
   <body>
@@ -212,6 +275,22 @@
       </section>
     </main>
     <div id="toasts"></div>
+
+    <!-- FDO Source Modal -->
+    <div id="fdo-modal">
+      <div class="fdo-content">
+        <div class="fdo-header">
+          <h2>FDO Decompiled Source</h2>
+          <button class="iconbtn" id="fdo-close">Close</button>
+        </div>
+        <div class="fdo-body">
+          <pre class="fdo-source" id="fdo-source-text"></pre>
+        </div>
+        <div class="fdo-actions">
+          <button class="btn" id="fdo-copy">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
     <script>
       const dz = document.getElementById('dz');
       const fileInput = document.getElementById('file');
@@ -221,7 +300,6 @@
       const timelineProxy = document.getElementById('timeline-proxy');
 
       const clearBtn = document.getElementById('clear');
-
       const exportJsonlBtn = document.getElementById('exportJsonl');
       const pxStart = document.getElementById('px-start');
       const pxStop = document.getElementById('px-stop');
@@ -359,7 +437,49 @@
       }
 
       function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
-      
+
+      // FDO Modal functions
+      function showFdoModal(source, title) {
+        const modal = document.getElementById('fdo-modal');
+        const sourceEl = document.getElementById('fdo-source-text');
+        const titleEl = modal.querySelector('.fdo-header h2');
+        sourceEl.textContent = source;
+        if (title) {
+          titleEl.textContent = title;
+        } else {
+          titleEl.textContent = 'FDO Decompiled Source';
+        }
+        modal.classList.add('active');
+      }
+
+      function hideFdoModal() {
+        const modal = document.getElementById('fdo-modal');
+        modal.classList.remove('active');
+      }
+
+      // FDO modal event listeners
+      document.getElementById('fdo-close').addEventListener('click', hideFdoModal);
+      document.getElementById('fdo-copy').addEventListener('click', async () => {
+        const source = document.getElementById('fdo-source-text').textContent;
+        await navigator.clipboard.writeText(source);
+        const btn = document.getElementById('fdo-copy');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 800);
+      });
+      // Close modal on ESC key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          hideFdoModal();
+        }
+      });
+      // Close modal on background click
+      document.getElementById('fdo-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'fdo-modal') {
+          hideFdoModal();
+        }
+      });
+
       // Session management functions
 
       let selectedFile = null;
@@ -422,8 +542,10 @@
         activeFrames().length = 0;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const content = e.target.result;
+
+          // Parse and render frames
           const lines = content.split('\n');
           let lineCount = 0;
 
@@ -575,7 +697,7 @@
         }
 
         const el = document.createElement('div');
-        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s') + (obj.hasError ? ' err' : '');
+        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s');
         const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
         let tokenMeta = null; // Token metadata removed
         const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
@@ -608,6 +730,7 @@
             <span class="actions">
               <button class="iconbtn" data-act="copy-json">Copy JSON</button>
               <button class="iconbtn" data-act="copy-hex">Copy Hex</button>
+              <button class="iconbtn" data-act="show-fdo">Show FDO</button>
             </span>
           </div>
           
@@ -631,6 +754,51 @@
           } else if (act === 'copy-hex') {
             await navigator.clipboard.writeText(obj.fullHex || '');
             if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy Hex', 800); }
+          } else if (act === 'show-fdo') {
+            // If already decompiled, show it immediately
+            if (obj.fdoSource) {
+              showFdoModal(obj.fdoSource);
+            } else {
+              // Otherwise, decompile on demand
+              if (!obj.fullHex) {
+                toast('No frame data available for decompilation', 'err');
+                return;
+              }
+
+              // Show loading state
+              target.disabled = true;
+              target.textContent = 'Decompiling...';
+
+              fetch('/api/decompile-frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullHex: obj.fullHex })
+              })
+              .then(res => res.json())
+              .then(result => {
+                target.disabled = false;
+                target.textContent = 'Show FDO';
+
+                if (result.success && result.fdoSource) {
+                  // Unescape newlines and other escape sequences from JSON
+                  const unescapedSource = result.fdoSource
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\r/g, '\r')
+                    .replace(/\\t/g, '\t');
+
+                  // Cache the unescaped result in the frame object
+                  obj.fdoSource = unescapedSource;
+                  showFdoModal(unescapedSource);
+                } else {
+                  toast(result.error || 'Decompilation failed', 'err');
+                }
+              })
+              .catch(err => {
+                target.disabled = false;
+                target.textContent = 'Show FDO';
+                toast('Failed to decompile: ' + err.message, 'err');
+              });
+            }
           }
         });
         const targetContainer = container || (isProxyActive() ? document.getElementById('timeline-proxy') : document.getElementById('timeline-pcap'));
@@ -777,6 +945,7 @@
         // Reset state
         activeStreamId = null;
       }
+
 
       function showHoverPreview(streamId) {
         // Don't show hover preview if this streamId is already selected

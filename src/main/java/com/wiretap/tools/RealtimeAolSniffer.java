@@ -4,6 +4,7 @@ import com.wiretap.aol.extractor.EthernetDecoder;
 import com.wiretap.aol.extractor.LinkDecoder;
 import com.wiretap.core.FrameParser;
 import com.wiretap.core.HexUtil;
+import com.wiretap.core.WireTapLog;
 import com.wiretap.extractor.FrameSummary;
 import com.wiretap.web.LiveBus;
 
@@ -33,7 +34,7 @@ public final class RealtimeAolSniffer {
                 case "--dest-port" -> destPort = Integer.parseInt(v);
             }
         }
-        System.out.println("Proxy listening on :" + listenPort + " -> " + destHost + ":" + destPort);
+        WireTapLog.debug("Proxy listening on :" + listenPort + " -> " + destHost + ":" + destPort);
         try (ServerSocket server = new ServerSocket(listenPort)) {
             while (true) {
                 Socket client = server.accept();

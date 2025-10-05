@@ -1,5 +1,9 @@
 package com.wiretap.web;
 
+import com.wiretap.core.WireTapLog;
+import com.wiretap.services.atomforge.AtomForgeConfig;
+import com.wiretap.services.atomforge.AtomForgeService;
+import com.wiretap.services.atomforge.HealthCheckResult;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -13,6 +17,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.scene.effect.DropShadow;
+import javafx.stage.Modality;
 
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -47,9 +52,14 @@ public class ServerGUI extends Application {
     }
 
     private static HttpApp staticHttpApp;
+    private static AtomForgeService staticAtomForgeService;
 
     public static void setStaticHttpApp(HttpApp app) {
         staticHttpApp = app;
+    }
+
+    public static void setStaticAtomForgeService(AtomForgeService service) {
+        staticAtomForgeService = service;
     }
 
     private Stage primaryStage;
@@ -57,6 +67,7 @@ public class ServerGUI extends Application {
     private final AtomicBoolean isRunning;
     private HttpApp httpApp;
     private Runnable shutdownCallback;
+    private AtomForgeService atomForgeService;
 
     // UI Components
     private Circle statusIndicator;
@@ -70,6 +81,9 @@ public class ServerGUI extends Application {
 
     // Status display components for dynamic updates
     private Label framesValueLabel;
+    private Label atomForgeValueLabel;
+    private Circle atomForgeIndicator;
+    private HBox atomForgeStatusRow;
     private Timer updateTimer;
     private VBox statusCardContainer;
 
@@ -101,8 +115,17 @@ public class ServerGUI extends Application {
         this.primaryStage.setScene(scene);
         this.primaryStage.setOnCloseRequest(e -> shutdown());
 
-        // Set the HttpApp reference from the static variable
+        // Set the HttpApp and AtomForgeService references from the static variables
         this.httpApp = staticHttpApp;
+        this.atomForgeService = staticAtomForgeService;
+
+        // Load AtomForge config if service is available
+        if (this.atomForgeService != null) {
+            WireTapLog.debug("AtomForgeService set, loading configuration...");
+            loadAtomForgeConfig();
+        } else {
+            WireTapLog.warn("AtomForgeService is null in start()");
+        }
 
         // Start the update timer for dynamic status updates
         startUpdateTimer();
@@ -135,6 +158,11 @@ public class ServerGUI extends Application {
 
     public void setHttpApp(HttpApp httpApp) {
         this.httpApp = httpApp;
+    }
+
+    public void setAtomForgeService(AtomForgeService service) {
+        this.atomForgeService = service;
+        loadAtomForgeConfig();
     }
 
     public void setShutdownCallback(Runnable callback) {
@@ -237,7 +265,10 @@ public class ServerGUI extends Application {
         // AOL Frames Counter
         HBox framesStatus = createStatusRow("Total AOL Frames", "0", Color.web("#2196F3"), true);
 
-        card.getChildren().addAll(cardTitle, new Separator(), httpStatus, proxyStatus, framesStatus);
+        // AtomForge Status - clickable to open config
+        atomForgeStatusRow = createAtomForgeStatusRow();
+
+        card.getChildren().addAll(cardTitle, new Separator(), httpStatus, proxyStatus, framesStatus, atomForgeStatusRow);
 
         return card;
     }
@@ -491,6 +522,14 @@ public class ServerGUI extends Application {
                 updateFramesCounter();
             }
         }, 1000, 1000); // Update every second
+
+        // Also schedule periodic AtomForge status updates every 10 seconds
+        updateTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                updateAtomForgeStatus();
+            }
+        }, 2000, 10000); // Start after 2 seconds, then every 10 seconds
     }
 
     private void updateFramesCounter() {
@@ -527,6 +566,217 @@ public class ServerGUI extends Application {
         }
     }
 
+    private HBox createAtomForgeStatusRow() {
+        HBox row = new HBox(12);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-cursor: hand;");
+        row.setOnMouseClicked(e -> showAtomForgeConfigDialog());
+
+        atomForgeIndicator = new Circle(5);
+        atomForgeIndicator.setFill(Color.web("#9E9E9E")); // Gray by default
+
+        Label titleLabel = new Label("AtomForge");
+        titleLabel.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        atomForgeValueLabel = new Label("Not Configured");
+        atomForgeValueLabel.setFont(Font.font("System", 13));
+        atomForgeValueLabel.setTextFill(Color.web("#757575"));
+
+        row.getChildren().addAll(atomForgeIndicator, titleLabel, spacer, atomForgeValueLabel);
+
+        return row;
+    }
+
+    private void loadAtomForgeConfig() {
+        if (atomForgeService == null) return;
+
+        String url = loadPreference("atomforge.url", "http://localhost:8000");
+        boolean enabled = Boolean.parseBoolean(loadPreference("atomforge.enabled", "true"));
+        int timeout = Integer.parseInt(loadPreference("atomforge.timeout", "30"));
+
+        AtomForgeConfig config = AtomForgeConfig.builder()
+            .url(url)
+            .enabled(enabled)
+            .timeoutSeconds(timeout)
+            .build();
+
+        WireTapLog.debug("Loading AtomForge config: " + config);
+        atomForgeService.configure(config);
+        // Don't call updateAtomForgeStatus() here - JavaFX might not be initialized yet
+        // The periodic timer will pick it up automatically
+    }
+
+    private void saveAtomForgeConfig(AtomForgeConfig config) {
+        savePreference("atomforge.url", config.getUrl());
+        savePreference("atomforge.enabled", String.valueOf(config.isEnabled()));
+        savePreference("atomforge.timeout", String.valueOf(config.getTimeoutSeconds()));
+    }
+
+    private void updateAtomForgeStatus() {
+        if (atomForgeService == null) {
+            WireTapLog.debug("AtomForge service is null, cannot update status");
+            return;
+        }
+
+        // Trigger a background health check (fire-and-forget)
+        atomForgeService.checkHealth();
+
+        // Poll the current cached result and update UI
+        Platform.runLater(() -> {
+            if (!atomForgeService.isAvailable()) {
+                AtomForgeConfig config = atomForgeService.getConfiguration();
+                if (config.isEnabled()) {
+                    WireTapLog.debug("AtomForge enabled but not available yet - showing red");
+                    atomForgeIndicator.setFill(Color.web("#F44336")); // Red - enabled but unavailable
+                    atomForgeValueLabel.setText("Connecting...");
+                } else {
+                    WireTapLog.debug("AtomForge disabled - showing gray");
+                    atomForgeIndicator.setFill(Color.web("#9E9E9E")); // Gray - disabled
+                    atomForgeValueLabel.setText("Disabled");
+                }
+            } else {
+                // Available - need to get the actual result details
+                // Re-check to get version/status info
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(100); // Give health check time to complete
+                        if (atomForgeService.isAvailable()) {
+                            Platform.runLater(() -> {
+                                WireTapLog.debug("AtomForge is AVAILABLE - showing green");
+                                atomForgeIndicator.setFill(Color.web("#4CAF50")); // Green
+                                atomForgeValueLabel.setText("Connected");
+                            });
+                        }
+                    } catch (Exception e) {
+                        // Ignore
+                    }
+                }, "atomforge-ui-updater").start();
+            }
+        });
+    }
+
+    private void showAtomForgeConfigDialog() {
+        if (atomForgeService == null) return;
+
+        AtomForgeConfig currentConfig = atomForgeService.getConfiguration();
+
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.initOwner(primaryStage);
+        dialog.setTitle("AtomForge Configuration");
+
+        VBox content = new VBox(16);
+        content.setPadding(new Insets(24));
+        content.setStyle("-fx-background-color: #FAFAFA;");
+
+        Label titleLabel = new Label("AtomForge Configuration");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        titleLabel.setTextFill(Color.web("#424242"));
+
+        GridPane form = new GridPane();
+        form.setHgap(12);
+        form.setVgap(16);
+        form.setPadding(new Insets(16));
+        form.setStyle("-fx-background-color: white; -fx-background-radius: 8;");
+
+        Label urlLabel = new Label("URL:");
+        urlLabel.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+        TextField urlField = new TextField(currentConfig.getUrl());
+        urlField.setPromptText("http://localhost:8081");
+        urlField.setPrefWidth(300);
+
+        Label timeoutLabel = new Label("Timeout (seconds):");
+        timeoutLabel.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+        TextField timeoutField = new TextField(String.valueOf(currentConfig.getTimeoutSeconds()));
+        timeoutField.setPromptText("30");
+        timeoutField.setPrefWidth(100);
+
+        CheckBox enabledCheckbox = new CheckBox("Enable AtomForge Integration");
+        enabledCheckbox.setSelected(currentConfig.isEnabled());
+        enabledCheckbox.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+
+        form.add(urlLabel, 0, 0);
+        form.add(urlField, 1, 0);
+        form.add(timeoutLabel, 0, 1);
+        form.add(timeoutField, 1, 1);
+        form.add(enabledCheckbox, 0, 2, 2, 1);
+
+        HBox buttonBox = new HBox(12);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Button testButton = new Button("Test Connection");
+        testButton.setStyle("-fx-background-color: #E8F1FD; -fx-text-fill: #1976D2; -fx-background-radius: 8;");
+        testButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        testButton.setOnAction(e -> {
+            String testUrl = urlField.getText().trim();
+            int testTimeout = Integer.parseInt(timeoutField.getText().trim());
+            AtomForgeConfig testConfig = AtomForgeConfig.builder()
+                .url(testUrl)
+                .enabled(true)
+                .timeoutSeconds(testTimeout)
+                .build();
+            atomForgeService.configure(testConfig);
+            atomForgeService.checkHealth().thenAccept(result -> {
+                Platform.runLater(() -> {
+                    if (result.isAvailable()) {
+                        showAlert(Alert.AlertType.INFORMATION, "Connection Test",
+                            "Successfully connected to AtomForge!\n\nVersion: " + result.getVersion() +
+                            "\nDaemon Status: " + result.getDaemonStatus());
+                    } else {
+                        showAlert(Alert.AlertType.ERROR, "Connection Test",
+                            "Failed to connect to AtomForge:\n\n" + result.getErrorMessage());
+                    }
+                });
+            });
+        });
+
+        Button cancelButton = new Button("Cancel");
+        cancelButton.setStyle("-fx-background-color: #E0E0E0; -fx-text-fill: #424242; -fx-background-radius: 8;");
+        cancelButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        cancelButton.setOnAction(e -> dialog.close());
+
+        Button saveButton = new Button("Save");
+        saveButton.setStyle("-fx-background-color: #1976D2; -fx-text-fill: white; -fx-background-radius: 8;");
+        saveButton.setFont(Font.font("System", FontWeight.MEDIUM, 13));
+        saveButton.setOnAction(e -> {
+            try {
+                String url = urlField.getText().trim();
+                int timeout = Integer.parseInt(timeoutField.getText().trim());
+                boolean enabled = enabledCheckbox.isSelected();
+
+                AtomForgeConfig newConfig = AtomForgeConfig.builder()
+                    .url(url)
+                    .enabled(enabled)
+                    .timeoutSeconds(timeout)
+                    .build();
+
+                atomForgeService.configure(newConfig);
+                saveAtomForgeConfig(newConfig);
+                updateAtomForgeStatus();
+
+                // Notify HttpApp of the new config
+                if (httpApp != null) {
+                    httpApp.setAtomForgeService(atomForgeService);
+                }
+
+                dialog.close();
+            } catch (Exception ex) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Input", ex.getMessage());
+            }
+        });
+
+        buttonBox.getChildren().addAll(testButton, cancelButton, saveButton);
+
+        content.getChildren().addAll(titleLabel, form, buttonBox);
+
+        Scene dialogScene = new Scene(content);
+        dialog.setScene(dialogScene);
+        dialog.setResizable(false);
+        dialog.show();
+    }
 
     public void waitForClose() throws InterruptedException {
         closeLatch.await();
@@ -535,6 +785,11 @@ public class ServerGUI extends Application {
     public void shutdown() {
         // Stop the update timer
         stopUpdateTimer();
+
+        // Shutdown AtomForge service
+        if (atomForgeService != null) {
+            atomForgeService.shutdown();
+        }
 
         Platform.runLater(() -> {
             isRunning.set(false);

@@ -47,7 +47,8 @@
       {"name": "payloadHex"},
       {"name": "payloadText"},
       {"name": "hasError"},
-      {"name": "errorCodes"}
+      {"name": "errorCodes"},
+      {"name": "fdoSource"}
     ]
   },
   {
@@ -279,5 +280,52 @@
       {"name": "GetApplication", "parameterTypes": []},
       {"name": "runLoop", "parameterTypes": ["java.lang.Runnable"]}
     ]
+  },
+  {
+    "name": "com.wiretap.services.atomforge.AtomForgeServiceImpl",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.wiretap.services.atomforge.AtomForgeService",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.wiretap.services.atomforge.AtomForgeConfig",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.wiretap.services.atomforge.AtomForgeConfig$Builder",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.wiretap.services.atomforge.HealthCheckResult",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.net.http.HttpClient",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.net.http.HttpClient$Builder",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.net.http.HttpRequest",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.net.http.HttpRequest$Builder",
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.net.http.HttpResponse",
+    "allDeclaredMethods": true
   }
 ]
