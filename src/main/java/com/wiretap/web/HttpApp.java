@@ -27,8 +27,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+
+import com.wiretap.session.SessionInfo;
+import com.wiretap.session.SessionManager;
 
 public final class HttpApp {
     private final int httpPort;
@@ -37,12 +38,8 @@ public final class HttpApp {
     private ServerGUI gui;
     private AtomForgeService atomForgeService;
 
-    // Session frame storage - keep recent frames for current session
-    private final Queue<String> sessionFrames = new ConcurrentLinkedQueue<>();
-    private static final int MAX_SESSION_FRAMES = 1000; // Keep last 1000 frames
-
-    // Total frames counter - keeps track of all frames processed
-    private volatile long totalFramesProcessed = 0;
+    // Session management - disk-based persistence for unlimited frames
+    private SessionManager sessionManager;
 
     // Static reference to current instance for LiveBus
     private static HttpApp currentInstance;
@@ -62,25 +59,21 @@ public final class HttpApp {
 
     // Session frame management methods
     public void addSessionFrame(String frame) {
-        synchronized (sessionFrames) {
-            sessionFrames.offer(frame);
-            // Keep only the most recent frames
-            while (sessionFrames.size() > MAX_SESSION_FRAMES) {
-                sessionFrames.poll();
-            }
+        if (sessionManager != null) {
+            sessionManager.addFrame(frame);
         }
-        // Increment total frames counter (thread-safe)
-        totalFramesProcessed++;
     }
 
-    public String[] getSessionFrames() {
-        synchronized (sessionFrames) {
-            return sessionFrames.toArray(new String[0]);
-        }
+    public SessionManager getSessionManager() {
+        return sessionManager;
     }
 
     public long getTotalFramesProcessed() {
-        return totalFramesProcessed;
+        return sessionManager != null ? sessionManager.getCurrentFrameCount() : 0;
+    }
+
+    public SessionInfo getCurrentSessionInfo() {
+        return sessionManager != null ? sessionManager.getCurrentSession() : null;
     }
 
     public int getCurrentProxyListenPort() {
@@ -101,29 +94,6 @@ public final class HttpApp {
         return startProxy(aolServerPort, host, port);
     }
 
-    private void saveProxyConfig(int listenPort, String host, int port) {
-        try {
-            // Ensure captures directory exists
-            Path capturesDir = Path.of("captures");
-            if (!Files.exists(capturesDir)) {
-                Files.createDirectories(capturesDir);
-            }
-
-            // Create configuration map
-            java.util.Map<String, Object> config = new java.util.HashMap<>();
-            config.put("listen", listenPort);
-            config.put("host", host);
-            config.put("port", port);
-
-            // Save to file
-            Path configPath = capturesDir.resolve("proxy-config.json");
-            try (java.io.BufferedWriter writer = Files.newBufferedWriter(configPath)) {
-                writer.write(JsonUtil.toJsonPretty(config));
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to save proxy configuration: " + e.getMessage());
-        }
-    }
 
     public boolean startProxy(int listenPort, String host, int port) {
         try {
@@ -134,8 +104,15 @@ public final class HttpApp {
                 proxy = new TcpProxyService(listenPort, host, port);
                 proxy.start();
 
-                // Save the current proxy configuration
-                saveProxyConfig(listenPort, host, port);
+                // Start a new session for this proxy run
+                if (sessionManager != null) {
+                    try {
+                        sessionManager.startSession();
+                        WireTapLog.info("New capture session started");
+                    } catch (IOException e) {
+                        WireTapLog.error("Failed to start session", e);
+                    }
+                }
 
                 if (gui != null) {
                     gui.updateProxyStatus(true, host + ":" + port);
@@ -156,9 +133,18 @@ public final class HttpApp {
                     proxy = null;
                     toClose.close();
                 }
-                // Clear session frames and reset counter when proxy stops
-                sessionFrames.clear();
-                totalFramesProcessed = 0;
+                // Stop the session (data persists on disk, NOT deleted)
+                if (sessionManager != null) {
+                    try {
+                        SessionInfo ended = sessionManager.stopSession();
+                        if (ended != null) {
+                            WireTapLog.info("Session stopped: " + ended.getId() +
+                                          ", frames: " + ended.getFrameCount());
+                        }
+                    } catch (IOException e) {
+                        WireTapLog.error("Failed to stop session", e);
+                    }
+                }
                 if (gui != null) {
                     gui.updateProxyUI(false, null);
                 }
@@ -181,6 +167,15 @@ public final class HttpApp {
             atomForgeService.shutdown();
         }
 
+        // Close session manager
+        if (sessionManager != null) {
+            try {
+                sessionManager.close();
+            } catch (IOException e) {
+                WireTapLog.error("Failed to close session manager", e);
+            }
+        }
+
         // Stop the HTTP server
         if (server != null) {
             server.stop(0); // Stop immediately
@@ -197,6 +192,15 @@ public final class HttpApp {
         // Set this as the current instance for LiveBus
         currentInstance = this;
 
+        // Initialize session manager for disk-based session persistence
+        try {
+            sessionManager = new SessionManager();
+            WireTapLog.info("Session storage: " + sessionManager.getSessionsDirectory());
+        } catch (IOException e) {
+            WireTapLog.error("Failed to initialize session manager", e);
+            // Continue without session persistence
+        }
+
         server = HttpServer.create(new InetSocketAddress(httpPort), 0);
 
         server.createContext("/", new StaticHandler("/public/index.html"));
@@ -206,12 +210,16 @@ public final class HttpApp {
         server.createContext("/api/atoms", new AtomsHandler());
         server.createContext("/api/live", new SseLiveHandler());
         server.createContext("/api/session/frames", new SessionFramesHandler());
+        server.createContext("/api/sessions", new SessionsHandler());
+        server.createContext("/api/sessions/current", new CurrentSessionHandler());
+        server.createContext("/api/sessions/clear", new ClearSessionHandler());
         server.createContext("/api/proxy/start", new ProxyStartHandler());
         server.createContext("/api/proxy/stop", new ProxyStopHandler());
         server.createContext("/api/proxy/status", new ProxyStatusHandler());
-        server.createContext("/api/proxy-config", new ProxyConfigHandler());
+        server.createContext("/api/connections", new ConnectionsHandler());
         server.createContext("/api/upload", new UploadHandler(aolServerPort));
         server.createContext("/api/decompile-frame", new DecompileFrameHandler());
+        server.createContext("/api/decompile-stream", new DecompileStreamHandler());
         server.createContext("/api/atomforge/health", new AtomForgeHealthHandler());
         // Use a cached thread pool so long-lived SSE connections don't starve other endpoints
         server.setExecutor(Executors.newCachedThreadPool());
@@ -246,15 +254,22 @@ public final class HttpApp {
             int listen = parseInt(form.getOrDefault("listen", String.valueOf(aolServerPort)), aolServerPort);
             String host = form.getOrDefault("host", "127.0.0.1");
             int port = parseInt(form.getOrDefault("port", "5190"), 5190);
-            synchronized (HttpApp.this) {
-                if (proxy != null && proxy.isRunning()) { proxy.close(); }
-                proxy = new TcpProxyService(listen, host, port);
-                proxy.start();
-                if (gui != null) {
-                    gui.updateProxyStatus(true, host + ":" + port);
-                }
+
+            // Use the main startProxy method to ensure session is started
+            boolean started = startProxy(listen, host, port);
+
+            StringBuilder json = new StringBuilder("{\"ok\":").append(started);
+            json.append(",\"listen\":").append(listen);
+            json.append(",\"dest\":\"").append(host).append(":").append(port).append("\"");
+
+            // Include session info if available
+            SessionInfo session = getCurrentSessionInfo();
+            if (session != null) {
+                json.append(",\"sessionId\":\"").append(session.getId()).append("\"");
             }
-            byte[] b = ("{\"ok\":true,\"listen\":"+listen+",\"dest\":\""+host+":"+port+"\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            json.append("}");
+
+            byte[] b = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
             exchange.sendResponseHeaders(200, b.length);
             exchange.getResponseBody().write(b);
@@ -267,25 +282,23 @@ public final class HttpApp {
         public void handle(HttpExchange exchange) throws IOException {
             addCors(exchange.getResponseHeaders());
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) { sendStatus(exchange, 405, "Method Not Allowed"); return; }
-            // Close proxy asynchronously so this handler returns immediately
-            TcpProxyService toClose = null;
-            synchronized (HttpApp.this) { if (proxy != null) { toClose = proxy; proxy = null; } }
-            if (toClose != null) {
-                TcpProxyService finalToClose = toClose;
-                new Thread(() -> {
-                    try {
-                        finalToClose.close();
-                        if (gui != null) {
-                            gui.updateProxyStatus(false, "Stopped");
-                        }
-                    } catch (Exception ignored) {}
-                }, "aol-proxy-stop").start();
-            } else {
-                if (gui != null) {
-                    gui.updateProxyStatus(false, "Not running");
-                }
+
+            // Get session info before stopping (for response)
+            SessionInfo session = getCurrentSessionInfo();
+            String sessionId = session != null ? session.getId() : null;
+            long frameCount = session != null ? session.getFrameCount() : 0;
+
+            // Use stopProxy which properly closes the session
+            stopProxy();
+
+            StringBuilder json = new StringBuilder("{\"ok\":true");
+            if (sessionId != null) {
+                json.append(",\"sessionId\":\"").append(sessionId).append("\"");
+                json.append(",\"frameCount\":").append(frameCount);
             }
-            byte[] b = "{\"ok\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            json.append("}");
+
+            byte[] b = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
             exchange.sendResponseHeaders(200, b.length);
             exchange.getResponseBody().write(b);
@@ -300,7 +313,18 @@ public final class HttpApp {
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) { sendStatus(exchange, 405, "Method Not Allowed"); return; }
             synchronized (HttpApp.this) {
                 boolean isRunning = proxy != null && proxy.isRunning();
-                byte[] b = ("{\"running\":" + isRunning + "}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                StringBuilder json = new StringBuilder("{\"running\":");
+                json.append(isRunning);
+
+                // Include connection information if proxy is running
+                if (isRunning && proxy != null) {
+                    ConnectionRegistry registry = proxy.getConnectionRegistry();
+                    json.append(",\"connections\":");
+                    json.append(registry.toJson());
+                }
+
+                json.append("}");
+                byte[] b = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
                 exchange.sendResponseHeaders(200, b.length);
                 exchange.getResponseBody().write(b);
@@ -323,6 +347,36 @@ public final class HttpApp {
 
     private static int parseInt(String s, int def) {
         try { return Integer.parseInt(s); } catch (Exception e) { return def; }
+    }
+
+    private final class ConnectionsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            synchronized (HttpApp.this) {
+                if (proxy != null && proxy.isRunning()) {
+                    ConnectionRegistry registry = proxy.getConnectionRegistry();
+                    String json = registry.toJson();
+                    byte[] b = json.getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+                    exchange.sendResponseHeaders(200, b.length);
+                    exchange.getResponseBody().write(b);
+                } else {
+                    // No proxy running
+                    String json = "{\"connections\":[],\"totalConnections\":0,\"activeConnections\":0,\"totalFrames\":0}";
+                    byte[] b = json.getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+                    exchange.sendResponseHeaders(200, b.length);
+                    exchange.getResponseBody().write(b);
+                }
+                exchange.close();
+            }
+        }
     }
 
     // Minimal Server-Sent Events handler for live frames. A companion sniffer can publish lines to this bus.
@@ -450,7 +504,7 @@ public final class HttpApp {
                  OutputStreamWriter osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
                 boolean pretty = false;
                 SummaryWriter writer = new WriterSummaryWriter(osw, pretty);
-                new AolExtractor().extract(tmp.toString(), aolServerPort, false, false, writer, null);
+                new AolExtractor().extract(tmp.toString(), aolServerPort, false, true, writer, null);
                 // SummaryWriter will flush lines; when extractor returns, we're done.
             } catch (Exception e) {
                 // Best-effort error body (after headers already sent)
@@ -578,73 +632,13 @@ public final class HttpApp {
         return "application/octet-stream";
     }
     
-    private final class ProxyConfigHandler implements HttpHandler {
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            addCors(exchange.getResponseHeaders());
-            
-            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Load proxy configuration
-                try {
-                    Path configPath = Path.of("captures/proxy-config.json");
-                    if (Files.exists(configPath)) {
-                        byte[] data = Files.readAllBytes(configPath);
-                        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-                        exchange.sendResponseHeaders(200, data.length);
-                        try (OutputStream os = exchange.getResponseBody()) {
-                            os.write(data);
-                        } finally {
-                            exchange.close();
-                        }
-                    } else {
-                        // Return default configuration
-                        java.util.Map<String, Object> defaultConfig = new java.util.HashMap<>();
-                        defaultConfig.put("listen", aolServerPort);
-                        defaultConfig.put("host", "127.0.0.1");
-                        defaultConfig.put("port", 5190);
 
-                        String json = JsonUtil.toJson(defaultConfig);
-                        byte[] data = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                        
-                        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-                        exchange.sendResponseHeaders(200, data.length);
-                        try (OutputStream os = exchange.getResponseBody()) {
-                            os.write(data);
-                        } finally {
-                            exchange.close();
-                        }
-                    }
-                } catch (Exception e) {
-                    sendStatus(exchange, 500, "Failed to load proxy configuration: " + e.getMessage());
-                }
-            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Save proxy configuration
-                try {
-                    String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                    java.util.Map<String, Object> config = JsonUtil.fromJson(body);
-                    
-                    // Ensure captures directory exists
-                    Path capturesDir = Path.of("captures");
-                    if (!Files.exists(capturesDir)) {
-                        Files.createDirectories(capturesDir);
-                    }
-                    
-                    Path configPath = capturesDir.resolve("proxy-config.json");
-                    try (java.io.BufferedWriter writer = Files.newBufferedWriter(configPath)) {
-                        writer.write(JsonUtil.toJsonPretty(config));
-                    }
-                    
-                    exchange.sendResponseHeaders(200, 0);
-                    exchange.close();
-                } catch (Exception e) {
-                    sendStatus(exchange, 500, "Failed to save proxy configuration: " + e.getMessage());
-                }
-            } else {
-                sendStatus(exchange, 405, "Method Not Allowed");
-            }
-        }
-    }
-
+    /**
+     * Streams session frames as JSONL directly from disk.
+     * Supports query parameters:
+     * - sessionId: Specific session ID (defaults to current session)
+     * - connectionId: Filter by connection ID
+     */
     private final class SessionFramesHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -654,21 +648,189 @@ public final class HttpApp {
                 return;
             }
 
-            String[] frames = getSessionFrames();
-            StringBuilder jsonResponse = new StringBuilder("[");
-            for (int i = 0; i < frames.length; i++) {
-                if (i > 0) jsonResponse.append(",");
-                jsonResponse.append("\"").append(frames[i].replace("\"", "\\\"")).append("\"");
+            if (sessionManager == null) {
+                sendStatus(exchange, 503, "Session manager not available");
+                return;
             }
-            jsonResponse.append("]");
 
-            byte[] data = jsonResponse.toString().getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-            exchange.sendResponseHeaders(200, data.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(data);
+            // Parse query parameters
+            String query = exchange.getRequestURI().getQuery();
+            String sessionId = null;
+            String connectionIdFilter = null;
+
+            if (query != null) {
+                for (String param : query.split("&")) {
+                    String[] keyValue = param.split("=", 2);
+                    if (keyValue.length == 2) {
+                        String key = keyValue[0];
+                        String value = java.net.URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8);
+                        if ("sessionId".equals(key)) {
+                            sessionId = value;
+                        } else if ("connectionId".equals(key)) {
+                            connectionIdFilter = value;
+                        }
+                    }
+                }
             }
-            exchange.close();
+
+            // Default to current session if no sessionId specified
+            if (sessionId == null) {
+                SessionInfo current = sessionManager.getCurrentSession();
+                if (current != null) {
+                    sessionId = current.getId();
+                } else {
+                    // No active session - return empty JSONL
+                    exchange.getResponseHeaders().set("Content-Type", "application/x-ndjson; charset=utf-8");
+                    exchange.sendResponseHeaders(200, 0);
+                    exchange.getResponseBody().close();
+                    exchange.close();
+                    return;
+                }
+            }
+
+            // Stream frames directly from disk as JSONL
+            exchange.getResponseHeaders().set("Content-Type", "application/x-ndjson; charset=utf-8");
+            exchange.sendResponseHeaders(200, 0); // Chunked encoding
+
+            try (OutputStream os = exchange.getResponseBody()) {
+                long count = sessionManager.streamSessionFrames(sessionId, os, connectionIdFilter);
+                WireTapLog.debug("SessionFrames: streamed " + count + " frames for session " + sessionId);
+            } catch (IOException e) {
+                WireTapLog.error("Failed to stream session frames", e);
+                // Response already started, can't send error status
+            } finally {
+                exchange.close();
+            }
+        }
+    }
+
+    /**
+     * Lists all sessions with metadata.
+     */
+    private final class SessionsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            if (sessionManager == null) {
+                sendJson(exchange, "{\"sessions\":[],\"error\":\"Session manager not available\"}");
+                return;
+            }
+
+            try {
+                List<SessionInfo> sessions = sessionManager.listSessions();
+                StringBuilder json = new StringBuilder("{\"sessions\":[");
+                for (int i = 0; i < sessions.size(); i++) {
+                    if (i > 0) json.append(",");
+                    json.append(sessions.get(i).toJson());
+                }
+                json.append("],\"totalDiskUsage\":").append(sessionManager.getTotalDiskUsage());
+                json.append(",\"sessionsDirectory\":\"").append(escapeJson(sessionManager.getSessionsDirectory().toString())).append("\"");
+                json.append("}");
+                sendJson(exchange, json.toString());
+            } catch (IOException e) {
+                sendJson(exchange, "{\"sessions\":[],\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    /**
+     * Returns the current active session info.
+     */
+    private final class CurrentSessionHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            if (sessionManager == null) {
+                sendJson(exchange, "{\"active\":false,\"error\":\"Session manager not available\"}");
+                return;
+            }
+
+            SessionInfo current = sessionManager.getCurrentSession();
+            if (current != null) {
+                StringBuilder json = new StringBuilder("{\"active\":true,\"session\":");
+                json.append(current.toJson());
+                json.append("}");
+                sendJson(exchange, json.toString());
+            } else {
+                // Check for recoverable sessions
+                try {
+                    List<SessionInfo> recoverable = sessionManager.findRecoverableSessions();
+                    if (!recoverable.isEmpty()) {
+                        SessionInfo toRecover = recoverable.get(0);
+                        StringBuilder json = new StringBuilder("{\"active\":false,\"recoverable\":true,\"session\":");
+                        json.append(toRecover.toJson());
+                        json.append("}");
+                        sendJson(exchange, json.toString());
+                    } else {
+                        sendJson(exchange, "{\"active\":false}");
+                    }
+                } catch (IOException e) {
+                    sendJson(exchange, "{\"active\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        }
+    }
+
+    /**
+     * Clears a session or all sessions.
+     * POST /api/sessions/clear - Clear all non-active sessions
+     * POST /api/sessions/clear?sessionId=xxx - Clear specific session
+     */
+    private final class ClearSessionHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            if (sessionManager == null) {
+                sendJson(exchange, "{\"success\":false,\"error\":\"Session manager not available\"}");
+                return;
+            }
+
+            // Parse query for specific sessionId
+            String query = exchange.getRequestURI().getQuery();
+            String sessionId = null;
+            if (query != null && query.contains("sessionId=")) {
+                for (String param : query.split("&")) {
+                    String[] keyValue = param.split("=", 2);
+                    if (keyValue.length == 2 && "sessionId".equals(keyValue[0])) {
+                        sessionId = java.net.URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8);
+                        break;
+                    }
+                }
+            }
+
+            try {
+                if (sessionId != null) {
+                    // Delete specific session
+                    boolean deleted = sessionManager.deleteSession(sessionId);
+                    sendJson(exchange, "{\"success\":" + deleted + ",\"deleted\":1}");
+                } else {
+                    // Clear all sessions
+                    int deleted = sessionManager.clearAllSessions();
+                    sendJson(exchange, "{\"success\":true,\"deleted\":" + deleted + "}");
+                }
+            } catch (IOException e) {
+                sendJson(exchange, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
         }
     }
 
@@ -743,6 +905,102 @@ public final class HttpApp {
             } catch (Exception e) {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
                 WireTapLog.error("DecompileFrame: Error during decompilation", e);
+                sendJson(exchange, "{\"success\":false,\"error\":\"" + escapeJson(errorMsg) + "\"}");
+            } finally {
+                exchange.close();
+            }
+        }
+    }
+
+    private final class DecompileStreamHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCors(exchange.getResponseHeaders());
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendStatus(exchange, 405, "Method Not Allowed");
+                return;
+            }
+
+            try {
+                if (atomForgeService == null) {
+                    WireTapLog.warn("DecompileStream: AtomForge service not initialized");
+                    sendJson(exchange, "{\"success\":false,\"error\":\"AtomForge service not initialized\"}");
+                    return;
+                }
+
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                WireTapLog.debug("DecompileStream: Received request, body length: " + (body != null ? body.length() : 0));
+
+                if (body == null || body.trim().isEmpty()) {
+                    WireTapLog.warn("DecompileStream: Empty request body");
+                    sendJson(exchange, "{\"success\":false,\"error\":\"Empty request body\"}");
+                    return;
+                }
+
+                // Parse JSON array of frame hex strings
+                // Expected format: {"frames": ["5A...", "5A...", ...]}
+                List<FrameSummary> framesToDecompile = new ArrayList<>();
+
+                // Find the "frames" array in JSON
+                int framesIndex = body.indexOf("\"frames\"");
+                if (framesIndex >= 0) {
+                    int colonIndex = body.indexOf(":", framesIndex);
+                    if (colonIndex >= 0) {
+                        int arrayStart = body.indexOf("[", colonIndex);
+                        if (arrayStart >= 0) {
+                            int arrayEnd = body.lastIndexOf("]");
+                            if (arrayEnd > arrayStart) {
+                                String arrayContent = body.substring(arrayStart + 1, arrayEnd);
+
+                                // Parse hex strings from array (simple parser for quoted strings)
+                                int pos = 0;
+                                while (pos < arrayContent.length()) {
+                                    int quoteStart = arrayContent.indexOf("\"", pos);
+                                    if (quoteStart < 0) break;
+
+                                    int quoteEnd = arrayContent.indexOf("\"", quoteStart + 1);
+                                    if (quoteEnd < 0) break;
+
+                                    String hexString = arrayContent.substring(quoteStart + 1, quoteEnd);
+                                    if (!hexString.isEmpty()) {
+                                        FrameSummary frame = new FrameSummary();
+                                        frame.fullHex = hexString;
+                                        framesToDecompile.add(frame);
+                                    }
+
+                                    pos = quoteEnd + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                WireTapLog.debug("DecompileStream: Parsed " + framesToDecompile.size() + " frames from request");
+
+                if (framesToDecompile.isEmpty()) {
+                    sendJson(exchange, "{\"success\":false,\"error\":\"No frames provided or invalid format\"}");
+                    return;
+                }
+
+                // Decompile all frames
+                WireTapLog.debug("DecompileStream: Calling AtomForge decompileMultipleFrames...");
+                String fdoSource = atomForgeService.decompileMultipleFrames(framesToDecompile);
+                WireTapLog.debug("DecompileStream: Decompilation completed, result length: " + (fdoSource != null ? fdoSource.length() : 0));
+
+                // Return result with frame count
+                StringBuilder json = new StringBuilder("{\"success\":true");
+                json.append(",\"fdoSource\":\"").append(escapeJson(fdoSource)).append("\"");
+                json.append(",\"frameCount\":").append(framesToDecompile.size());
+                json.append("}");
+                sendJson(exchange, json.toString());
+            } catch (Exception e) {
+                String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                WireTapLog.error("DecompileStream: Error during decompilation", e);
                 sendJson(exchange, "{\"success\":false,\"error\":\"" + escapeJson(errorMsg) + "\"}");
             } finally {
                 exchange.close();

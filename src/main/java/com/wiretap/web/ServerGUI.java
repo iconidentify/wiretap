@@ -86,6 +86,8 @@ public class ServerGUI extends Application {
     private HBox atomForgeStatusRow;
     private Timer updateTimer;
     private VBox statusCardContainer;
+    private Label proxyStatusValueLabel;
+    private Circle proxyStatusIndicator;
 
 
     public ServerGUI() {
@@ -260,7 +262,8 @@ public class ServerGUI extends Application {
         // Proxy Server Status - use the actual listening port from the active proxy
         int actualListenPort = httpApp != null ? httpApp.getCurrentProxyListenPort() : -1;
         String proxyStatusText = actualListenPort > 0 ? "Port " + actualListenPort : "Not Running";
-        HBox proxyStatus = createStatusRow("AOL Proxy", proxyStatusText, Color.web("#FF9800"));
+        Color proxyIndicatorColor = actualListenPort > 0 ? Color.web("#4CAF50") : Color.web("#FF9800");
+        HBox proxyStatus = createProxyStatusRow("AOL Proxy", proxyStatusText, proxyIndicatorColor);
 
         // AOL Frames Counter
         HBox framesStatus = createStatusRow("Total AOL Frames", "0", Color.web("#2196F3"), true);
@@ -300,6 +303,28 @@ public class ServerGUI extends Application {
         }
 
         row.getChildren().addAll(indicator, titleLabel, spacer, valueLabel);
+
+        return row;
+    }
+
+    private HBox createProxyStatusRow(String title, String value, Color indicatorColor) {
+        HBox row = new HBox(12);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        proxyStatusIndicator = new Circle(5);
+        proxyStatusIndicator.setFill(indicatorColor);
+
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        proxyStatusValueLabel = new Label(value);
+        proxyStatusValueLabel.setFont(Font.font("System", 13));
+        proxyStatusValueLabel.setTextFill(Color.web("#757575"));
+
+        row.getChildren().addAll(proxyStatusIndicator, titleLabel, spacer, proxyStatusValueLabel);
 
         return row;
     }
@@ -621,40 +646,30 @@ public class ServerGUI extends Application {
             return;
         }
 
-        // Trigger a background health check (fire-and-forget)
-        atomForgeService.checkHealth();
-
-        // Poll the current cached result and update UI
-        Platform.runLater(() -> {
-            if (!atomForgeService.isAvailable()) {
-                AtomForgeConfig config = atomForgeService.getConfiguration();
-                if (config.isEnabled()) {
-                    WireTapLog.debug("AtomForge enabled but not available yet - showing red");
-                    atomForgeIndicator.setFill(Color.web("#F44336")); // Red - enabled but unavailable
-                    atomForgeValueLabel.setText("Connecting...");
-                } else {
-                    WireTapLog.debug("AtomForge disabled - showing gray");
-                    atomForgeIndicator.setFill(Color.web("#9E9E9E")); // Gray - disabled
-                    atomForgeValueLabel.setText("Disabled");
+        // Trigger health check and update UI when result is ready
+        atomForgeService.checkHealth().thenAccept(result -> {
+            Platform.runLater(() -> {
+                if (atomForgeIndicator == null || atomForgeValueLabel == null) {
+                    return; // UI not initialized yet
                 }
-            } else {
-                // Available - need to get the actual result details
-                // Re-check to get version/status info
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(100); // Give health check time to complete
-                        if (atomForgeService.isAvailable()) {
-                            Platform.runLater(() -> {
-                                WireTapLog.debug("AtomForge is AVAILABLE - showing green");
-                                atomForgeIndicator.setFill(Color.web("#4CAF50")); // Green
-                                atomForgeValueLabel.setText("Connected");
-                            });
-                        }
-                    } catch (Exception e) {
-                        // Ignore
+
+                if (result.isAvailable()) {
+                    WireTapLog.debug("AtomForge is AVAILABLE - showing green");
+                    atomForgeIndicator.setFill(Color.web("#4CAF50")); // Green
+                    atomForgeValueLabel.setText("Connected");
+                } else {
+                    AtomForgeConfig config = atomForgeService.getConfiguration();
+                    if (config.isEnabled()) {
+                        WireTapLog.debug("AtomForge enabled but not available - showing red");
+                        atomForgeIndicator.setFill(Color.web("#F44336")); // Red - enabled but unavailable
+                        atomForgeValueLabel.setText("Unavailable");
+                    } else {
+                        WireTapLog.debug("AtomForge disabled - showing gray");
+                        atomForgeIndicator.setFill(Color.web("#9E9E9E")); // Gray - disabled
+                        atomForgeValueLabel.setText("Disabled");
                     }
-                }, "atomforge-ui-updater").start();
-            }
+                }
+            });
         });
     }
 
@@ -876,17 +891,28 @@ public class ServerGUI extends Application {
 
             // Update main status indicator
             if (statusIndicator != null) {
-            if (isRunning && destination != null && !destination.isEmpty()) {
+                if (isRunning && destination != null && !destination.isEmpty()) {
                     statusIndicator.setFill(Color.web("#4CAF50")); // Green
-            } else if (isRunning) {
+                } else if (isRunning) {
                     statusIndicator.setFill(Color.web("#FF9800")); // Orange
-            } else {
+                } else {
                     statusIndicator.setFill(Color.web("#9E9E9E")); // Gray
                 }
             }
 
-            // Refresh the status card to show updated proxy port / state
-            refreshStatusCard();
+            // Update proxy status in the status card directly (preserves AtomForge state)
+            if (proxyStatusValueLabel != null && proxyStatusIndicator != null) {
+                if (httpApp != null) {
+                    int actualListenPort = httpApp.getCurrentProxyListenPort();
+                    if (actualListenPort > 0) {
+                        proxyStatusValueLabel.setText("Port " + actualListenPort);
+                        proxyStatusIndicator.setFill(Color.web("#4CAF50")); // Green
+                    } else {
+                        proxyStatusValueLabel.setText("Not Running");
+                        proxyStatusIndicator.setFill(Color.web("#FF9800")); // Orange
+                    }
+                }
+            }
         });
     }
 

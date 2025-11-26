@@ -32,6 +32,11 @@ public final class FrameSummary {
     // FDO decompilation
     public String fdoSource;    // Decompiled FDO source code or formatted data frame info
 
+    // Connection tracking (for multi-connection scenarios)
+    public String connectionId;  // Unique identifier for TCP connection
+    public String sourceIp;      // Client IP address
+    public Integer sourcePort;   // Client port number
+
     public String toJson(boolean pretty) {
         String q = "\"";
         String comma = pretty ? ", " : ",";
@@ -56,6 +61,9 @@ public final class FrameSummary {
         if (tokenDesc != null) est += 14 + tokenDesc.length();
         if (docRef != null) est += 12 + docRef.length();
         if (fdoSource != null) est += 14 + fdoSource.length();
+        if (connectionId != null) est += 16 + connectionId.length();
+        if (sourceIp != null) est += 12 + sourceIp.length();
+        if (sourcePort != null) est += 14;
         StringBuilder sb = new StringBuilder(Math.min(est, 4096));
         sb.append("{");
         boolean first = true;
@@ -85,6 +93,9 @@ public final class FrameSummary {
         if (hasError != null) { sb.append(comma); sb.append(q).append("hasError").append(q).append(":").append(hasError); }
         if (errorCodes != null) { sb.append(comma); add(sb,"errorCodes",errorCodes,""); }
         if (fdoSource != null) { sb.append(comma); add(sb,"fdoSource",fdoSource,""); }
+        if (connectionId != null) { sb.append(comma); add(sb,"connectionId",connectionId,""); }
+        if (sourceIp != null) { sb.append(comma); add(sb,"sourceIp",sourceIp,""); }
+        if (sourcePort != null) { sb.append(comma); sb.append(q).append("sourcePort").append(q).append(":").append(sourcePort); }
 
         sb.append("}");
         return sb.toString();

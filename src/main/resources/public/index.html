@@ -24,14 +24,13 @@
       .btn.danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
       .btn.danger:hover:not(:disabled) { background: #991b1b; }
       .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .proxy-controls { display: flex; gap: 8px; align-items: center; }
       .btn { appearance: none; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.2s ease; }
       .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--secondary); }
       .output { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; }
       .card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; height: 100%; display: flex; flex-direction: column; background: var(--surface-card); }
       .card header { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-card); }
       .card pre { margin: 0; padding: 16px 20px; max-height: 480px; overflow: auto; font-size: 13px; line-height: 1.5; background: var(--surface); color: var(--text); }
-      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; }
+      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; overflow-y: auto; }
       /* Professional JSON syntax highlighting */
       .hl-key { color: var(--primary); }
       .hl-string { color: var(--success); }
@@ -204,6 +203,713 @@
         gap: 8px;
         justify-content: flex-end;
       }
+
+      /* Session Recovery Modal */
+      #recovery-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      #recovery-modal.active {
+        display: flex;
+      }
+      .recovery-content {
+        background: var(--surface-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      }
+      .recovery-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .recovery-header h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .recovery-body {
+        padding: 24px;
+      }
+      .recovery-info {
+        margin-bottom: 20px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .recovery-stats {
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+      .recovery-stats .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .recovery-stats .stat-row:last-child {
+        margin-bottom: 0;
+      }
+      .recovery-stats .stat-label {
+        color: var(--text-secondary);
+      }
+      .recovery-stats .stat-value {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .recovery-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+      .recovery-actions .btn {
+        min-width: 100px;
+      }
+
+      /* Session disk usage indicator */
+      .disk-usage {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .disk-icon {
+        opacity: 0.7;
+      }
+
+      /* Connection Tabs - Horizontal Layout */
+      .connection-tabs-container {
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-card);
+        margin-bottom: 16px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        display: none; /* Hidden by default */
+      }
+      .connection-tabs {
+        display: flex;
+        gap: 0;
+        padding: 0 24px;
+        min-height: 48px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        position: relative;
+      }
+      .connection-tabs::-webkit-scrollbar {
+        height: 4px;
+      }
+      .connection-tabs::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .connection-tabs::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+      .connection-tabs::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+      }
+
+      /* Overflow indicators */
+      .connection-tabs-container::after {
+        content: "→";
+        position: absolute;
+        right: 50px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .connection-tabs-container.has-overflow::after {
+        opacity: 1;
+      }
+      .connection-tab {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 16px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        border-radius: 0;
+      }
+      .connection-tab:hover {
+        background: var(--surface-hover);
+        color: var(--text);
+      }
+      .connection-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+        font-weight: 600;
+        background: rgba(59, 130, 246, 0.05);
+      }
+      .connection-tab.all.active {
+        color: var(--success);
+        border-bottom-color: var(--success);
+        background: rgba(5, 150, 105, 0.05);
+      }
+      .connection-tab:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .connection-count {
+        opacity: 0.7;
+        font-size: 12px;
+        margin-left: 4px;
+      }
+      .duration-badge {
+        opacity: 0.6;
+        font-size: 11px;
+        margin-left: 6px;
+        color: var(--text-tertiary);
+      }
+      .connection-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+        margin-left: 6px;
+        flex-shrink: 0;
+      }
+      .connection-status-dot.inactive {
+        background: var(--secondary);
+      }
+
+      /* Clear Recent Button */
+      .clear-recent-btn {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        z-index: 1;
+      }
+      .clear-recent-btn:hover {
+        background: var(--surface-hover);
+        color: var(--text);
+        border-color: var(--primary);
+      }
+      .clear-recent-btn:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .connection-tabs-container {
+        position: relative;
+      }
+
+      /* Port-based color coding */
+      .connection-tab[data-port="5190"] {
+        border-left: 3px solid var(--success);
+      }
+      .connection-tab[data-port="80"] {
+        border-left: 3px solid #3b82f6; /* Blue */
+      }
+      .connection-tab[data-port="443"] {
+        border-left: 3px solid #9333ea; /* Purple */
+      }
+      .connection-tab[data-port="8080"] {
+        border-left: 3px solid #f59e0b; /* Amber */
+      }
+      .connection-tab[data-port="3306"] {
+        border-left: 3px solid #ef4444; /* Red */
+      }
+      .connection-tab[data-port="22"] {
+        border-left: 3px solid #06b6d4; /* Cyan */
+      }
+
+      /* Closed connection styling */
+      .connection-tab.closed {
+        opacity: 0.6;
+        background: rgba(0, 0, 0, 0.02);
+        border-left-color: var(--secondary) !important;
+      }
+      .connection-tab.closed:hover {
+        opacity: 0.8;
+        background: var(--surface-hover);
+      }
+      .connection-tab.closed .connection-label {
+        color: var(--text-tertiary);
+      }
+      .connection-tab.closed .duration-badge,
+      .connection-tab.closed .connection-count {
+        opacity: 0.5;
+      }
+
+      /* Sidebar Layout */
+      .proxy-layout {
+        display: flex;
+        height: calc(100vh - 160px);
+        gap: 0;
+      }
+
+      .connections-sidebar {
+        width: 280px;
+        min-width: 280px;
+        background: var(--surface-card);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.3s ease, min-width 0.3s ease;
+        overflow: hidden;
+      }
+
+      .connections-sidebar.collapsed {
+        width: 48px;
+        min-width: 48px;
+      }
+
+      .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+      }
+
+      .sidebar-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        transition: opacity 0.3s ease;
+      }
+
+      .connections-sidebar.collapsed .sidebar-header h3 {
+        opacity: 0;
+      }
+
+      .sidebar-toggle {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .sidebar-toggle:hover {
+        background: var(--surface-hover);
+        color: var(--text);
+      }
+
+      .toggle-icon {
+        display: inline-block;
+        transition: transform 0.3s ease;
+        font-size: 14px;
+      }
+
+      .connections-sidebar.collapsed .toggle-icon {
+        transform: rotate(180deg);
+      }
+
+      .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      /* Fix scrolling in Live Proxy layout */
+      .main-content > .output {
+        min-height: 0;
+      }
+
+      .main-content > .output > .card {
+        min-height: 0;
+      }
+
+      /* Connection Items */
+      .connection-section {
+        margin-bottom: 8px;
+      }
+
+      .connection-item {
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+      }
+
+      .connection-item:hover {
+        background: var(--surface-hover);
+      }
+
+      .connection-item.active {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--primary);
+        font-weight: 500;
+      }
+
+      .connection-item.all.active {
+        background: rgba(5, 150, 105, 0.1);
+        color: var(--success);
+      }
+
+      .connection-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .connection-name {
+        display: block;
+        font-size: 14px;
+        color: var(--text);
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .connection-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .frame-count {
+        opacity: 0.8;
+      }
+
+      .connection-duration {
+        opacity: 0.6;
+      }
+
+      /* Connection Groups */
+      .connection-group {
+        margin-bottom: 16px;
+      }
+
+      .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px 4px 12px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+
+      .group-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .group-count {
+        font-size: 11px;
+        color: var(--text-tertiary);
+      }
+
+      .clear-recent-btn-sidebar {
+        border: none;
+        background: transparent;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        transition: all 0.2s ease;
+      }
+
+      .clear-recent-btn-sidebar:hover {
+        background: var(--surface-hover);
+        color: var(--error);
+      }
+
+      .group-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      /* Connection Status Indicators */
+      .connection-status {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .connection-status.active {
+        background: var(--success);
+      }
+
+      .connection-status.closed {
+        background: var(--secondary);
+      }
+
+      /* Port Color Indicators */
+      .port-indicator {
+        width: 3px;
+        height: 20px;
+        border-radius: 1px;
+        flex-shrink: 0;
+      }
+
+      .port-indicator[data-port="5190"] { background: var(--success); }
+      .port-indicator[data-port="80"] { background: #3b82f6; }
+      .port-indicator[data-port="443"] { background: #9333ea; }
+      .port-indicator[data-port="8080"] { background: #f59e0b; }
+      .port-indicator[data-port="3306"] { background: #ef4444; }
+      .port-indicator[data-port="22"] { background: #06b6d4; }
+
+      /* Collapsed sidebar styles */
+      .connections-sidebar.collapsed .sidebar-content {
+        padding: 4px;
+      }
+
+      .connections-sidebar.collapsed .connection-name,
+      .connections-sidebar.collapsed .connection-meta,
+      .connections-sidebar.collapsed .group-header,
+      .connections-sidebar.collapsed .connection-search {
+        display: none;
+      }
+
+      .connections-sidebar.collapsed .connection-item {
+        padding: 8px;
+        justify-content: center;
+      }
+
+      /* Search Input */
+      .connection-search {
+        margin-bottom: 12px;
+        padding: 0 4px;
+      }
+
+      .search-input {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        transition: border-color 0.2s ease;
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+
+      /* Compact Session Metadata Bar */
+      .session-metadata-compact {
+        padding: 12px 24px;
+        background: var(--surface-card);
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: none; /* Hidden by default */
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+      }
+      .session-metadata-compact .metric {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .session-metadata-compact .metric-value {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .session-metadata-compact .status-warning {
+        color: var(--error);
+        font-weight: 600;
+      }
+      .session-metadata-compact .separator {
+        color: var(--border);
+        margin: 0 4px;
+      }
+
+      /* Proxy Controls */
+      .proxy-controls {
+        margin-bottom: 16px;
+        display: none; /* Hidden by default, shown when proxy tab is active */
+      }
+      .proxy-status-section {
+        padding: 12px 24px;
+        background: var(--surface-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .proxy-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+      }
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--secondary);
+        transition: background-color 0.2s ease;
+      }
+      .status-dot.running {
+        background: var(--success);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+      }
+      .proxy-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* Mobile Responsive for Tabs */
+      @media (max-width: 768px) {
+        .connection-tabs {
+          padding: 0 12px;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+        }
+        .connection-tab {
+          padding: 10px 12px;
+          font-size: 13px;
+        }
+        .session-metadata-compact {
+          padding: 10px 12px;
+          font-size: 11px;
+          gap: 12px;
+        }
+      }
+
+      /* Responsive Design for Sidebar */
+      @media (max-width: 1024px) {
+        .proxy-layout {
+          height: calc(100vh - 120px);
+        }
+        .connections-sidebar {
+          width: 240px;
+          min-width: 240px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .proxy-layout {
+          flex-direction: column;
+          height: auto;
+        }
+        .connections-sidebar {
+          width: 100%;
+          min-width: 100%;
+          height: 200px;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+        .connections-sidebar.collapsed {
+          height: 48px;
+          width: 100%;
+          min-width: 100%;
+        }
+        .sidebar-content {
+          padding: 4px 8px;
+        }
+        .connection-item {
+          padding: 8px;
+          font-size: 13px;
+        }
+        .connection-name {
+          font-size: 13px;
+        }
+        .connection-meta {
+          font-size: 11px;
+        }
+        .main-content {
+          flex: 1;
+        }
+      }
+
+      /* Very small screens - stack metadata */
+      @media (max-width: 480px) {
+        .session-metadata-compact {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+          padding: 8px 12px;
+        }
+        .session-metadata-compact .separator {
+          display: none;
+        }
+        .connections-sidebar {
+          height: 150px;
+        }
+        .sidebar-header {
+          padding: 8px 12px;
+        }
+        .sidebar-header h3 {
+          font-size: 13px;
+        }
+        .connection-item {
+          padding: 6px 8px;
+        }
+        .port-indicator {
+          width: 2px;
+          height: 16px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -216,42 +922,119 @@
         <div class="tab" data-tab="pcap">PCAP Analyzer</div>
       </div>
       <div id="tab-proxy" class="tab-panel active">
-        <!-- GUI Mode: Show session metadata -->
-        <div id="proxy-gui-mode" style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px; display:none;">
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
-            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
-              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Total Frames</div>
-              <div style="font-size:18px; font-weight:600;" id="session-frames">0</div>
+        <div class="proxy-layout">
+          <!-- Connections Sidebar -->
+          <div class="connections-sidebar" id="connections-sidebar">
+            <div class="sidebar-header">
+              <h3>Connections</h3>
+              <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
+                <span class="toggle-icon">⟨</span>
+              </button>
             </div>
-            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
-              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Sequence Status</div>
-              <div style="font-size:18px; font-weight:600;" id="sequence-status">OK</div>
-            </div>
-            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
-              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Session Duration</div>
-              <div style="font-size:18px; font-weight:600;" id="session-duration">00:00:00</div>
-            </div>
-            <div style="padding:12px; background: var(--surface-card); border-radius:8px;">
-              <div style="font-size:12px; opacity:0.7; margin-bottom:4px;">Data Rate</div>
-              <div style="font-size:18px; font-weight:600;" id="data-rate">0 B/s</div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Headless Mode: Show proxy controls -->
-        <div id="proxy-headless-mode" style="padding:16px; border:1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius:12px;">
-          <h3>Proxy Configuration</h3>
-          <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
-            Listen: <input id="px-listen" type="number" value="5190" style="width:80px">
-            Dest host: <input id="px-host" type="text" value="127.0.0.1" style="width:140px">
-            Port: <input id="px-port" type="number" value="5190" style="width:80px">
+            <div class="sidebar-content">
+              <!-- Connection Search -->
+              <div class="connection-search" id="connection-search" style="display: none;">
+                <input type="text" placeholder="Search connections..." class="search-input" id="search-connections">
+              </div>
+
+              <!-- All Connections Option -->
+              <div class="connection-section">
+                <button role="tab"
+                        aria-selected="true"
+                        aria-controls="timeline-proxy"
+                        id="connection-item-all"
+                        class="connection-item all active"
+                        data-connection-id="null"
+                        tabindex="0">
+                  <div class="connection-info">
+                    <span class="connection-name">All Connections</span>
+                    <span class="connection-meta">
+                      <span class="frame-count">(0)</span>
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Active Connections Section -->
+              <div class="connection-group" id="active-connections-group" style="display: none;">
+                <div class="group-header">
+                  <span class="group-title">Active</span>
+                  <span class="group-count" id="active-group-count">(0)</span>
+                </div>
+                <div class="group-content" id="active-connections-list"></div>
+              </div>
+
+              <!-- Recent Connections Section -->
+              <div class="connection-group" id="recent-connections-group" style="display: none;">
+                <div class="group-header">
+                  <span class="group-title">Recent</span>
+                  <span class="group-count" id="recent-group-count">(0)</span>
+                  <button class="clear-recent-btn-sidebar" id="clear-recent-btn-sidebar" title="Clear recent connections">Clear</button>
+                </div>
+                <div class="group-content" id="recent-connections-list"></div>
+              </div>
+            </div>
           </div>
-          <div class="proxy-controls" style="margin-top:12px;">
-            <button id="px-start" class="btn primary" style="min-width: 100px;">Start Proxy</button>
-            <button id="px-stop" class="btn danger" style="min-width: 100px;" disabled>Stop Proxy</button>
-            <span id="proxy-status" style="font-size: 12px; opacity: 0.7; margin-left: 8px;">Proxy stopped</span>
-          </div>
-        </div>
+
+          <!-- Main Content Area -->
+          <div class="main-content" id="main-content">
+            <!-- Compact Session Metadata Bar -->
+            <div class="session-metadata-compact" id="session-metadata-compact">
+              <span class="metric">
+                <span class="metric-value" id="session-frames">0</span> frames
+              </span>
+              <span class="separator">•</span>
+              <span class="metric">
+                <span class="metric-value" id="connection-count">0</span> connections
+              </span>
+              <span class="separator">•</span>
+              <span class="metric">
+                <span class="metric-value" id="session-duration">00:00:00</span>
+              </span>
+              <span class="separator">•</span>
+              <span class="metric disk-usage">
+                <span class="disk-icon">&#128190;</span>
+                <span class="metric-value" id="session-disk-size">0 KB</span>
+              </span>
+              <span class="separator">•</span>
+              <span class="metric">
+                <span id="sequence-status">Sequence: OK</span>
+              </span>
+            </div>
+
+            <!-- Proxy Controls -->
+            <div class="proxy-controls" id="proxy-controls">
+              <div class="proxy-status-section">
+                <div class="proxy-status">
+                  <span class="status-indicator">
+                    <span class="status-dot" id="proxy-status-dot"></span>
+                    <span id="proxy-status-text">Proxy Status: Stopped</span>
+                  </span>
+                </div>
+                <div class="proxy-actions">
+                  <button id="px-start" class="btn primary">Start Proxy</button>
+                  <button id="px-stop" class="btn danger" style="display: none;">Stop Proxy</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Proxy Timeline and Output -->
+            <section class="output">
+              <div class="card">
+                <header>
+                  <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
+                  <div class="actions">
+                    <button id="decompile-stream" class="iconbtn" style="display: none;">Decompile Stream</button>
+                    <button id="clear" class="iconbtn">Clear</button>
+                    <button id="exportJsonl" class="iconbtn">Export JSONL</button>
+                  </div>
+                </header>
+                <div id="timeline-proxy" class="timeline" role="tabpanel" aria-labelledby="connection-item-all"></div>
+              </div>
+            </section>
+          </div> <!-- End main-content -->
+        </div> <!-- End proxy-layout -->
       </div>
       <div id="tab-pcap" class="tab-panel">
         <div id="dz" class="dropzone">
@@ -259,22 +1042,26 @@
           <div class="dz-sub">or click to choose</div>
           <input id="file" type="file" accept=".pcap,.jsonl,application/vnd.tcpdump.pcap,application/x-ndjson" hidden />
         </div>
+
+        <!-- PCAP Timeline and Output -->
+        <section class="output">
+          <div class="card">
+            <header>
+              <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
+              <div class="actions">
+                <button id="decompile-stream" class="iconbtn" style="display: none;">Decompile Stream</button>
+                <button id="clear" class="iconbtn">Clear</button>
+                <button id="exportJsonl" class="iconbtn">Export JSONL</button>
+              </div>
+            </header>
+            <div id="timeline-pcap" class="timeline" style="display:none"></div>
+          </div>
+        </section>
       </div>
-      <section class="output">
-        <div class="card">
-          <header>
-            <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
-            <div class="actions">
-              <button id="clear" class="iconbtn">Clear</button>
-              <button id="exportJsonl" class="iconbtn">Export JSONL</button>
-            </div>
-          </header>
-          <div id="timeline-pcap" class="timeline" style="display:none"></div>
-          <div id="timeline-proxy" class="timeline"></div>
-        </div>
-      </section>
     </main>
     <div id="toasts"></div>
+    <!-- ARIA live region for screen reader announcements -->
+    <div id="connection-announcer" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
 
     <!-- FDO Source Modal -->
     <div id="fdo-modal">
@@ -291,6 +1078,39 @@
         </div>
       </div>
     </div>
+
+    <!-- Session Recovery Modal -->
+    <div id="recovery-modal">
+      <div class="recovery-content">
+        <div class="recovery-header">
+          <h2>Restore Previous Session?</h2>
+          <button class="iconbtn" id="recovery-close">X</button>
+        </div>
+        <div class="recovery-body">
+          <div class="recovery-info">
+            A previous capture session was found. Would you like to restore it?
+          </div>
+          <div class="recovery-stats">
+            <div class="stat-row">
+              <span class="stat-label">Frames captured:</span>
+              <span class="stat-value" id="recovery-frame-count">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Duration:</span>
+              <span class="stat-value" id="recovery-duration">0:00:00</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Size on disk:</span>
+              <span class="stat-value" id="recovery-size">0 KB</span>
+            </div>
+          </div>
+          <div class="recovery-actions">
+            <button class="btn" id="recovery-dismiss">Start Fresh</button>
+            <button class="btn primary" id="recovery-restore">Restore Session</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script>
       const dz = document.getElementById('dz');
       const fileInput = document.getElementById('file');
@@ -301,44 +1121,11 @@
 
       const clearBtn = document.getElementById('clear');
       const exportJsonlBtn = document.getElementById('exportJsonl');
-      const pxStart = document.getElementById('px-start');
-      const pxStop = document.getElementById('px-stop');
-      const pxListen = document.getElementById('px-listen');
-      const pxHost = document.getElementById('px-host');
-      const pxPort = document.getElementById('px-port');
-      const proxyStatus = document.getElementById('proxy-status');
 
-      // Check if we're running in GUI mode (do this early)
-      const urlParams = new URLSearchParams(window.location.search);
-      const isGuiMode = urlParams.get('gui') === 'true';
-
-      // Toggle between GUI and headless mode displays
-      const proxyGuiMode = document.getElementById('proxy-gui-mode');
-      const proxyHeadlessMode = document.getElementById('proxy-headless-mode');
-
-      if (isGuiMode) {
-        proxyGuiMode.style.display = 'block';
-        proxyHeadlessMode.style.display = 'none';
-      } else {
-        proxyGuiMode.style.display = 'none';
-        proxyHeadlessMode.style.display = 'block';
-      }
       
       
-      // Proxy configuration persistence and instant detection
-      async function loadProxyConfig() {
-        try {
-          const res = await fetch('/api/proxy-config');
-          if (res.ok) {
-            const config = await res.json();
-            pxListen.value = config.listen || 5190;
-            pxHost.value = config.host || '127.0.0.1';
-            pxPort.value = config.port || 5190;
-          }
-        } catch (e) {
-          console.error('Failed to load proxy configuration:', e);
-        }
-
+      // Check initial proxy status and start streaming if running
+      async function checkInitialProxyStatus() {
         // Immediately check proxy status and start streaming if running
         console.log('Checking proxy status...');
         try {
@@ -347,37 +1134,43 @@
           if (status.running) {
             console.log('Proxy is running, starting live stream immediately...');
             proxyRunning = true;
-            updateProxyButtons();
 
-            // Load existing session frames
+            // Load existing connections
+            await loadConnections();
+
+            // Load existing session frames (now JSONL stream)
             console.log('Loading existing session frames...');
             try {
               const framesRes = await fetch('/api/session/frames');
               if (framesRes.ok) {
-                const frames = await framesRes.json();
-                console.log(`Loading ${frames.length} existing session frames...`);
+                const text = await framesRes.text();
+                const lines = text.trim().split('\n').filter(line => line.trim());
+                console.log(`Loading ${lines.length} existing session frames...`);
 
                 // Display existing frames
-                for (const frameJson of frames) {
+                for (const line of lines) {
                   try {
-                    const obj = JSON.parse(frameJson);
-                    const frameData = { obj, raw: frameJson, isLive: false };
+                    const obj = JSON.parse(line);
+                    const frameData = { obj, raw: line, isLive: false };
                     activeFrames().push(frameData);
-                    renderFrame(obj, frameJson, document.getElementById('timeline-proxy'));
+                    renderFrame(obj, line, document.getElementById('timeline-proxy'));
                   } catch (e) {
                     console.warn('Failed to parse session frame:', e);
                   }
                 }
 
-                // As a backup, if we're in GUI mode and no frames were counted, set it manually
-                if (isGuiMode && totalFramesReceived === 0 && frames.length > 0) {
-                  totalFramesReceived = frames.length;
+                // As a backup, if no frames were counted, set it manually
+                if (totalFramesReceived === 0 && lines.length > 0) {
+                  totalFramesReceived = lines.length;
                   updateSessionMetadata();
                 }
 
-                if (frames.length > 0) {
-                  toast(`Loaded ${frames.length} frames from current session`, 'ok');
+                if (lines.length > 0) {
+                  toast(`Loaded ${lines.length} frames from current session`, 'ok');
                 }
+
+                // Apply current connection filter if active
+                filterFramesByConnection();
               }
             } catch (err) {
               console.warn('Failed to load session frames:', err);
@@ -387,54 +1180,80 @@
             startLive();
           } else {
             proxyRunning = false;
-            updateProxyButtons();
+            // Check for recoverable sessions when proxy is not running
+            checkForRecoverableSession();
           }
         } catch (err) {
           console.warn('Failed to check proxy status:', err);
           proxyRunning = false;
-          updateProxyButtons();
         }
       }
-      
-      async function saveProxyConfig() {
+
+      // Check for recoverable sessions from previous runs
+      async function checkForRecoverableSession() {
         try {
-          const config = {
-            listen: parseInt(pxListen.value) || 5190,
-            host: pxHost.value || '127.0.0.1',
-            port: parseInt(pxPort.value) || 5190
-          };
-          
-          const res = await fetch('/api/proxy-config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-          });
-          
-          if (!res.ok) {
-            console.error('Failed to save proxy configuration');
+          const res = await fetch('/api/sessions/current');
+          const data = await res.json();
+
+          if (data.recoverable && data.session) {
+            const session = data.session;
+            // Show recovery modal
+            document.getElementById('recovery-frame-count').textContent = session.frameCount.toLocaleString();
+            document.getElementById('recovery-duration').textContent = session.formattedDuration || '0:00:00';
+            document.getElementById('recovery-size').textContent = session.formattedSize || '0 KB';
+            document.getElementById('recovery-modal').classList.add('active');
+
+            // Store session ID for restoration
+            window.recoverableSessionId = session.id;
           }
-        } catch (e) {
-          console.error('Failed to save proxy configuration:', e);
+        } catch (err) {
+          console.warn('Failed to check for recoverable session:', err);
+        }
+      }
+
+      // Recovery modal event handlers
+      document.getElementById('recovery-close').addEventListener('click', () => {
+        document.getElementById('recovery-modal').classList.remove('active');
+      });
+      document.getElementById('recovery-dismiss').addEventListener('click', () => {
+        document.getElementById('recovery-modal').classList.remove('active');
+      });
+      document.getElementById('recovery-restore').addEventListener('click', async () => {
+        document.getElementById('recovery-modal').classList.remove('active');
+        if (window.recoverableSessionId) {
+          await restoreSession(window.recoverableSessionId);
+        }
+      });
+
+      // Restore a previous session
+      async function restoreSession(sessionId) {
+        toast('Restoring session...', 'ok');
+        try {
+          const res = await fetch(`/api/session/frames?sessionId=${encodeURIComponent(sessionId)}`);
+          if (!res.ok) throw new Error('Failed to fetch session');
+
+          const text = await res.text();
+          const lines = text.trim().split('\n').filter(line => line.trim());
+
+          for (const line of lines) {
+            try {
+              const obj = JSON.parse(line);
+              const frameData = { obj, raw: line, isLive: false };
+              framesProxy.push(frameData);
+              renderFrame(obj, line, document.getElementById('timeline-proxy'));
+            } catch (e) {
+              console.warn('Failed to parse frame:', e);
+            }
+          }
+
+          totalFramesReceived = lines.length;
+          updateSessionMetadata();
+          toast(`Restored ${lines.length} frames from previous session`, 'ok');
+        } catch (err) {
+          toast('Failed to restore session: ' + err.message, 'err');
         }
       }
       
-      function updateProxyButtons() {
-        if (proxyRunning) {
-          pxStart.disabled = true;
-          pxStart.textContent = 'Proxy Running';
-          pxStop.disabled = false;
-          pxStop.textContent = 'Stop Proxy';
-          proxyStatus.textContent = 'Proxy running';
-          proxyStatus.style.color = 'var(--ok)';
-        } else {
-          pxStart.disabled = false;
-          pxStart.textContent = 'Start Proxy';
-          pxStop.disabled = true;
-          pxStop.textContent = 'Stop Proxy';
-          proxyStatus.textContent = 'Proxy stopped';
-          proxyStatus.style.color = 'currentColor';
-        }
-      }
 
       function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
 
@@ -488,7 +1307,6 @@
       // Session metadata tracking
       let sessionStartTime = null;
       let totalFramesReceived = 0;
-      let frameTimestamps = [];
       let lastSequenceNumber = null;
       let sequenceGaps = 0;
 
@@ -500,12 +1318,15 @@
       }
       function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
 
+      // Connection management
+      let connections = []; // Array of connection objects
+      let selectedConnectionId = null; // null = "All Connections"
+
       // StreamId filtering state
       let activeStreamId = null;
 
       // Session metadata functions
       function updateSessionMetadata() {
-        if (!isGuiMode) return;
 
         // Update frame count
         document.getElementById('session-frames').textContent = totalFramesReceived.toLocaleString();
@@ -514,16 +1335,6 @@
         const sequenceStatus = sequenceGaps > 0 ? `${sequenceGaps} gaps` : 'OK';
         document.getElementById('sequence-status').textContent = sequenceStatus;
 
-        // Calculate and update FPS (frames per second)
-        let fps = 0;
-        if (frameTimestamps.length >= 2) {
-          const recentFrames = frameTimestamps.filter(ts => Date.now() - ts < 10000); // Last 10 seconds
-          if (recentFrames.length >= 2) {
-            const timeSpan = (recentFrames[recentFrames.length - 1] - recentFrames[0]) / 1000; // seconds
-            fps = Math.round(recentFrames.length / timeSpan);
-          }
-        }
-        document.getElementById('data-rate').textContent = `${fps} fps`;
 
         // Update session duration
         if (sessionStartTime) {
@@ -533,6 +1344,323 @@
           const seconds = duration % 60;
           document.getElementById('session-duration').textContent =
             `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update disk size periodically by fetching session info
+        updateDiskSize();
+      }
+
+      // Update disk size from server
+      let lastDiskSizeUpdate = 0;
+      async function updateDiskSize() {
+        // Throttle disk size updates to every 2 seconds
+        const now = Date.now();
+        if (now - lastDiskSizeUpdate < 2000) return;
+        lastDiskSizeUpdate = now;
+
+        try {
+          const res = await fetch('/api/sessions/current');
+          const data = await res.json();
+          if (data.active && data.session) {
+            document.getElementById('session-disk-size').textContent = data.session.formattedSize || '0 KB';
+          }
+        } catch (err) {
+          // Ignore errors silently
+        }
+      }
+
+      // Connection management functions
+      function generateSmartLabel(conn, connections) {
+        // Check for duplicate IPs and generate smart labels
+        const sameIpConnections = connections.filter(c => c.sourceIp === conn.sourceIp);
+
+        // If non-standard port, show port
+        if (conn.sourcePort !== 5190) {
+          return `${conn.sourceIp}:${conn.sourcePort}`;
+        }
+
+        // If multiple connections from same IP, add index
+        if (sameIpConnections.length > 1) {
+          const index = sameIpConnections.indexOf(conn) + 1;
+          return `${conn.sourceIp} #${index}`;
+        }
+
+        // Otherwise, just show IP
+        return conn.sourceIp;
+      }
+
+      function updateConnectionsSidebar() {
+        const sidebar = document.getElementById('connections-sidebar');
+        const metadataBar = document.getElementById('session-metadata-compact');
+
+        if (!isProxyActive()) {
+          sidebar.style.display = 'none';
+          metadataBar.style.display = 'none';
+          return;
+        }
+
+        sidebar.style.display = 'flex';
+        metadataBar.style.display = 'flex';
+
+        // Show/hide search input based on number of connections
+        const searchContainer = document.getElementById('connection-search');
+        if (connections.length > 3 && !sidebar.classList.contains('collapsed')) {
+          searchContainer.style.display = 'block';
+        } else {
+          searchContainer.style.display = 'none';
+        }
+
+        // Update "All Connections" item
+        const allItem = document.getElementById('connection-item-all');
+        const totalFrames = connections.reduce((sum, c) => sum + c.frameCount, 0);
+        allItem.querySelector('.frame-count').textContent = `(${totalFrames})`;
+        allItem.className = `connection-item all ${selectedConnectionId === null ? 'active' : ''}`;
+        allItem.setAttribute('aria-selected', selectedConnectionId === null ? 'true' : 'false');
+
+        // Separate active and recent connections
+        const activeConnections = connections.filter(c => c.active);
+        const recentConnections = connections.filter(c => !c.active);
+
+        // Update group visibility and counts
+        updateConnectionGroup('active-connections-group', activeConnections, 'active-group-count');
+        updateConnectionGroup('recent-connections-group', recentConnections, 'recent-group-count');
+
+        // Populate connection lists
+        populateConnectionList('active-connections-list', activeConnections);
+        populateConnectionList('recent-connections-list', recentConnections);
+
+        // Update connection count in metadata bar
+        const connectionCountEl = document.getElementById('connection-count');
+        connectionCountEl.textContent = activeConnections.length;
+
+        // Update session metadata
+        updateSessionMetadata();
+      }
+
+      function updateConnectionGroup(groupId, connections, countId) {
+        const group = document.getElementById(groupId);
+        const countEl = document.getElementById(countId);
+
+        if (connections.length > 0) {
+          group.style.display = 'block';
+          countEl.textContent = `(${connections.length})`;
+        } else {
+          group.style.display = 'none';
+        }
+      }
+
+      function populateConnectionList(listId, connections) {
+        const list = document.getElementById(listId);
+        list.innerHTML = '';
+
+        connections.forEach(conn => {
+          const item = createConnectionCard(conn);
+          list.appendChild(item);
+        });
+      }
+
+      function createConnectionCard(conn) {
+        const item = document.createElement('button');
+        item.role = 'tab';
+        item.id = `connection-item-${conn.connectionId}`;
+        item.className = `connection-item ${selectedConnectionId === conn.connectionId ? 'active' : ''} ${conn.active ? '' : 'closed'}`;
+        item.dataset.connectionId = conn.connectionId;
+        item.dataset.port = conn.sourcePort;
+        item.setAttribute('aria-selected', selectedConnectionId === conn.connectionId ? 'true' : 'false');
+        item.setAttribute('aria-controls', 'timeline-proxy');
+        item.tabIndex = selectedConnectionId === conn.connectionId ? 0 : -1;
+
+        // Generate smart label and duration
+        const smartLabel = generateSmartLabel(conn, connections);
+        const duration = formatDuration(conn.durationSeconds);
+        const startTime = new Date(conn.startTime).toLocaleTimeString();
+
+        item.innerHTML = `
+          <div class="port-indicator" data-port="${conn.sourcePort}"></div>
+          <div class="connection-info">
+            <span class="connection-name">${smartLabel}</span>
+            <div class="connection-meta">
+              <span class="frame-count">${conn.frameCount} frames</span>
+              <span class="connection-duration">${duration}</span>
+              <span class="start-time">${startTime}</span>
+            </div>
+          </div>
+          <div class="connection-status ${conn.active ? 'active' : 'closed'}"></div>
+        `;
+
+        // Add click handler
+        item.addEventListener('click', () => selectConnection(conn.connectionId));
+
+        // Add hover tooltip
+        item.title = `${conn.sourceIp}:${conn.sourcePort}\nStarted: ${startTime}\nDuration: ${duration}\nFrames: ${conn.frameCount}\nStatus: ${conn.active ? 'Active' : 'Closed'}`;
+
+        return item;
+      }
+
+      function selectConnection(connectionId) {
+        selectedConnectionId = connectionId;
+
+        // Update ARIA labelledby for the timeline panel
+        const timelinePanel = document.getElementById('timeline-proxy');
+        const activeItemId = connectionId ? `connection-item-${connectionId}` : 'connection-item-all';
+        timelinePanel.setAttribute('aria-labelledby', activeItemId);
+
+        // Make announcement for screen readers
+        const announcer = document.getElementById('connection-announcer');
+        let announcement;
+        if (connectionId) {
+          const conn = connections.find(c => c.connectionId === connectionId);
+          const connLabel = conn ? `${conn.sourceIp}:${conn.sourcePort}` : 'unknown connection';
+          announcement = `Switched to connection ${connLabel}`;
+        } else {
+          announcement = 'Showing all connections';
+        }
+        announcer.textContent = announcement;
+
+        updateConnectionsSidebar();
+        filterFramesByConnection();
+      }
+
+      function filterFramesByConnection() {
+        if (!isProxyActive()) return;
+
+        const timeline = document.getElementById('timeline-proxy');
+        const frames = timeline.children;
+
+        for (const frame of frames) {
+          if (selectedConnectionId === null) {
+            // Show all frames
+            frame.style.display = '';
+          } else {
+            // Check if frame belongs to selected connection
+            const frameConnectionId = frame.dataset.connectionId;
+            if (frameConnectionId === selectedConnectionId) {
+              frame.style.display = '';
+            } else {
+              frame.style.display = 'none';
+            }
+          }
+        }
+      }
+
+      function formatDuration(seconds) {
+        if (seconds < 60) return `${seconds}s`;
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        return `${hours}h${minutes % 60}m`;
+      }
+
+      function showConnectionTooltip(element, conn) {
+        // Create tooltip showing connection details
+        const tooltip = document.createElement('div');
+        tooltip.className = 'popover';
+        tooltip.style.display = 'block';
+        tooltip.style.top = '50%';
+        tooltip.style.transform = 'translateY(-50%)';
+        tooltip.innerHTML = `
+          <div><strong>Connection ${conn.connectionId}</strong></div>
+          <div>IP: ${conn.sourceIp}:${conn.sourcePort}</div>
+          <div>Started: ${new Date(conn.startTime).toLocaleString()}</div>
+          <div>Duration: ${formatDuration(conn.durationSeconds)}</div>
+          <div>Total Frames: ${conn.frameCount}</div>
+          <div>Status: ${conn.active ? 'Active' : 'Closed'}</div>
+        `;
+        element.style.position = 'relative';
+        element.appendChild(tooltip);
+      }
+
+      function hideConnectionTooltip() {
+        document.querySelectorAll('.connection-item .popover').forEach(tooltip => {
+          tooltip.remove();
+        });
+      }
+
+      async function loadConnections() {
+        if (!proxyRunning) {
+          connections = [];
+          updateConnectionsSidebar();
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/connections');
+          if (res.ok) {
+            const data = await res.json();
+            connections = data.connections || [];
+            updateConnectionsSidebar();
+          }
+        } catch (e) {
+          console.warn('Failed to load connections:', e);
+        }
+      }
+
+      function handleConnectionEvent(data) {
+        if (data.event === 'connection_opened') {
+          // Add new connection
+          const newConnection = {
+            connectionId: data.connectionId,
+            sourceIp: data.sourceIp,
+            sourcePort: data.sourcePort,
+            startTime: new Date().toISOString(),
+            frameCount: 0,
+            active: true,
+            durationSeconds: 0
+          };
+          connections.push(newConnection);
+          updateConnectionsSidebar();
+        } else if (data.event === 'connection_closed') {
+          // Mark connection as closed and schedule auto-cleanup
+          const conn = connections.find(c => c.connectionId === data.connectionId);
+          if (conn) {
+            conn.active = false;
+            conn.frameCount = data.frameCount || conn.frameCount;
+            conn.closedTime = new Date().toISOString();
+
+            // Schedule auto-cleanup after 10 minutes
+            setTimeout(() => {
+              cleanupClosedConnection(conn.connectionId);
+            }, 10 * 60 * 1000); // 10 minutes
+
+            updateConnectionsSidebar();
+          }
+        } else if (data.event === 'connections_reset') {
+          // Clear all connections
+          connections = [];
+          selectedConnectionId = null;
+          updateConnectionsSidebar();
+        }
+      }
+
+      function cleanupClosedConnection(connectionId) {
+        const index = connections.findIndex(c => c.connectionId === connectionId);
+        if (index !== -1 && !connections[index].active) {
+          // If this was the selected connection, switch to "All Connections"
+          if (selectedConnectionId === connectionId) {
+            selectConnection(null);
+          }
+
+          connections.splice(index, 1);
+          updateConnectionsSidebar();
+
+          // Show a subtle notification
+          showToast(`Cleaned up closed connection`, 'info');
+        }
+      }
+
+      function clearAllClosedConnections() {
+        const activeConnections = connections.filter(c => c.active);
+        const removedCount = connections.length - activeConnections.length;
+
+        if (removedCount > 0) {
+          // If selected connection was closed, switch to "All Connections"
+          if (selectedConnectionId && !connections.find(c => c.connectionId === selectedConnectionId && c.active)) {
+            selectConnection(null);
+          }
+
+          connections = activeConnections;
+          updateConnectionsSidebar();
+          showToast(`Cleared ${removedCount} closed connection(s)`, 'success');
         }
       }
 
@@ -605,6 +1733,48 @@
         if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
       });
 
+      // Sidebar event handlers
+      document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+      document.getElementById('clear-recent-btn-sidebar').addEventListener('click', clearAllClosedConnections);
+      document.getElementById('connection-item-all').addEventListener('click', () => selectConnection(null));
+      document.getElementById('search-connections').addEventListener('input', handleConnectionSearch);
+
+      function toggleSidebar() {
+        const sidebar = document.getElementById('connections-sidebar');
+        sidebar.classList.toggle('collapsed');
+
+        // Show/hide search when expanding
+        const searchContainer = document.getElementById('connection-search');
+        if (sidebar.classList.contains('collapsed')) {
+          searchContainer.style.display = 'none';
+        } else if (connections.length > 3) {
+          searchContainer.style.display = 'block';
+        }
+      }
+
+      function handleConnectionSearch(e) {
+        const query = e.target.value.toLowerCase();
+        const activeList = document.getElementById('active-connections-list');
+        const recentList = document.getElementById('recent-connections-list');
+
+        filterConnectionItems(activeList, query);
+        filterConnectionItems(recentList, query);
+      }
+
+      function filterConnectionItems(container, query) {
+        const items = container.querySelectorAll('.connection-item');
+        items.forEach(item => {
+          const name = item.querySelector('.connection-name').textContent.toLowerCase();
+          const meta = item.querySelector('.connection-meta').textContent.toLowerCase();
+
+          if (name.includes(query) || meta.includes(query)) {
+            item.style.display = 'flex';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+      }
+
       function syntaxHighlight(json) {
         // escape HTML
         json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -670,17 +1840,9 @@
       }
 
       function renderFrame(obj, raw, container) {
-        // Update session metadata for GUI mode - count all frames in proxy timeline
-        if (isGuiMode && container.id === 'timeline-proxy') {
+        // Update session metadata - count all frames in proxy timeline
+        if (container.id === 'timeline-proxy') {
           totalFramesReceived++;
-
-          // Track frame timestamps for FPS calculation
-          const now = Date.now();
-          frameTimestamps.push(now);
-
-          // Keep only last 60 seconds of timestamps for FPS calculation
-          const oneMinuteAgo = now - 60000;
-          frameTimestamps = frameTimestamps.filter(ts => ts > oneMinuteAgo);
 
           // Track sequence numbers for gap detection
           if (obj.seq !== undefined) {
@@ -698,6 +1860,11 @@
 
         const el = document.createElement('div');
         el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s');
+
+        // Add connection ID data attribute for filtering
+        if (obj.connectionId) {
+          el.dataset.connectionId = obj.connectionId;
+        }
         const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
         let tokenMeta = null; // Token metadata removed
         const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
@@ -830,6 +1997,50 @@
         selectedFile = null;
       });
 
+
+      // Update proxy status and UI
+      async function updateProxyStatus() {
+        try {
+          const response = await fetch('/api/proxy/status');
+          const status = await response.json();
+
+          const statusDot = document.getElementById('proxy-status-dot');
+          const statusText = document.getElementById('proxy-status-text');
+          const startBtn = document.getElementById('px-start');
+          const stopBtn = document.getElementById('px-stop');
+
+          if (status.running) {
+            statusDot.classList.add('running');
+            statusText.textContent = 'Proxy Status: Running (Port 5190)';
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+
+            // Update global proxy state
+            proxyRunning = true;
+
+            // Load connections and start live streaming
+            await loadConnections();
+            startLive();
+          } else {
+            statusDot.classList.remove('running');
+            statusText.textContent = 'Proxy Status: Stopped';
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+
+            // Update global proxy state
+            proxyRunning = false;
+
+            // Stop live streaming
+            if (window.es) {
+              window.es.close();
+              window.es = null;
+            }
+          }
+        } catch (err) {
+          console.error('Error checking proxy status:', err);
+        }
+      }
+
       async function startLive(){
         if (window.es) return; // Already connected
         console.log('Connecting to live stream...');
@@ -838,19 +2049,16 @@
           console.log('Live stream connected successfully');
           toast('Live session active','ok');
 
-          // Initialize session metadata for GUI mode
-          if (isGuiMode) {
-            // Only reset if no frames have been counted yet (avoid resetting when reopening with historical frames)
-            if (totalFramesReceived === 0) {
-              sessionStartTime = Date.now();
-              frameTimestamps = [];
-              lastSequenceNumber = null;
-              sequenceGaps = 0;
-            } else {
-              // Preserve existing session start time and metadata when reconnecting
-            }
-            updateSessionMetadata();
+          // Initialize session metadata
+          // Only reset if no frames have been counted yet (avoid resetting when reopening with historical frames)
+          if (totalFramesReceived === 0) {
+            sessionStartTime = Date.now();
+            lastSequenceNumber = null;
+            sequenceGaps = 0;
+          } else {
+            // Preserve existing session start time and metadata when reconnecting
           }
+          updateSessionMetadata();
 
           // Only switch to proxy tab if user hasn't explicitly navigated elsewhere
           const currentHash = window.location.hash.substring(1);
@@ -864,14 +2072,42 @@
           }
         };
         window.es.onmessage = (ev) => {
-          console.log('Received live frame:', ev.data);
           try {
             const obj = JSON.parse(ev.data);
+
+            // Handle connection lifecycle events
+            if (obj.event) {
+              console.log('Received connection event:', obj.event);
+              handleConnectionEvent(obj);
+
+              // Update connection frame counts for existing connections
+              if (obj.connectionId) {
+                const conn = connections.find(c => c.connectionId === obj.connectionId);
+                if (conn && obj.event !== 'connection_opened' && obj.event !== 'connection_closed') {
+                  conn.frameCount = (conn.frameCount || 0) + 1;
+                  updateConnectionsSidebar();
+                }
+              }
+              return;
+            }
+
+            // Handle frame data
+            console.log('Received live frame:', ev.data);
             const frameData = { obj, raw: ev.data, isLive: true };
             activeFrames().push(frameData);
             renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
+
+            // Update connection frame count if this frame has a connectionId
+            if (obj.connectionId) {
+              const conn = connections.find(c => c.connectionId === obj.connectionId);
+              if (conn) {
+                conn.frameCount = (conn.frameCount || 0) + 1;
+                updateConnectionsSidebar();
+              }
+            }
+
           } catch (e) {
-            console.error('Failed to parse live frame:', e, ev.data);
+            console.error('Failed to parse live data:', e, ev.data);
           }
         };
         window.es.onerror = (e) => {
@@ -898,11 +2134,9 @@
           window.es = null;
         }
 
-        // Reset session metadata for GUI mode
-        if (isGuiMode) {
-          activeConnections = 0;
-          updateSessionMetadata();
-        }
+        // Reset session metadata
+        activeConnections = 0;
+        updateSessionMetadata();
       }
 
       // StreamId filtering functions
@@ -930,6 +2164,14 @@
           }
         });
 
+        // Show and update the "Decompile Stream" button
+        const decompileStreamBtn = document.getElementById('decompile-stream');
+        if (decompileStreamBtn) {
+          const plural = matchCount !== 1 ? 's' : '';
+          decompileStreamBtn.textContent = `Decompile Stream (${matchCount} frame${plural})`;
+          decompileStreamBtn.style.display = '';
+        }
+
         // Show toast notification
         const plural = matchCount !== 1 ? 's' : '';
         toast(`Highlighting ${matchCount} frame${plural} with streamId: ${streamId}`, 'ok');
@@ -941,6 +2183,12 @@
         // Remove all highlight classes from pills
         document.querySelectorAll('.stream-selected, .stream-highlighted')
           .forEach(el => el.classList.remove('stream-selected', 'stream-highlighted'));
+
+        // Hide the "Decompile Stream" button
+        const decompileStreamBtn = document.getElementById('decompile-stream');
+        if (decompileStreamBtn) {
+          decompileStreamBtn.style.display = 'none';
+        }
 
         // Reset state
         activeStreamId = null;
@@ -1030,38 +2278,96 @@
         });
       }
 
-      pxStart.addEventListener('click', async () => {
-        if (proxyRunning) return; // Already running
-        const body = new URLSearchParams({ listen: pxListen.value, host: pxHost.value, port: pxPort.value }).toString();
-        const res = await fetch('/api/proxy/start', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-        if (res.ok) {
-          proxyRunning = true;
-          localStorage.setItem('proxyRunning', 'true');
-          toast('Proxy started','ok');
-          // Save the proxy configuration
-          await saveProxyConfig();
-          // Update button states
-          updateProxyButtons();
-          // Auto-connect live streaming when proxy starts
-          setTimeout(() => {
-            if (!window.es) {
-              console.log('Auto-connecting live stream...');
-              startLive();
+      // Decompile stream button handler
+      document.getElementById('decompile-stream').addEventListener('click', async () => {
+        if (!activeStreamId) {
+          toast('No stream selected', 'err');
+          return;
+        }
+
+        // Store streamId locally to preserve it during async operation
+        const streamId = activeStreamId;
+
+        const btn = document.getElementById('decompile-stream');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Decompiling...';
+
+        try {
+          // Filter frames client-side by matching streamId and optionally connectionId
+          const frames = activeFrames();
+          const matchingHexFrames = [];
+
+          for (const frameData of frames) {
+            const obj = frameData.obj;
+            const frameStreamId = extractStreamIdFromHex(obj);
+
+            // Check streamId match
+            if (frameStreamId !== streamId || !obj.fullHex) {
+              continue;
             }
-          }, 500);
-        } else {
-          toast('Failed to start proxy','err');
+
+            // Check connection filter if active
+            if (selectedConnectionId && obj.connectionId !== selectedConnectionId) {
+              continue;
+            }
+
+            matchingHexFrames.push(obj.fullHex);
+          }
+
+          if (matchingHexFrames.length === 0) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            const filterMsg = selectedConnectionId
+              ? 'No frames with hex data found for selected stream and connection'
+              : 'No frames with hex data found for selected stream';
+            toast(filterMsg, 'err');
+            return;
+          }
+
+          // Reverse to match UI display order (newest first)
+          matchingHexFrames.reverse();
+
+          // Send frame hex data to server
+          const response = await fetch('/api/decompile-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames: matchingHexFrames })
+          });
+
+          const result = await response.json();
+
+          btn.disabled = false;
+          btn.textContent = originalText;
+
+          if (result.success && result.fdoSource) {
+            // Unescape newlines and other escape sequences from JSON
+            const unescapedSource = result.fdoSource
+              .replace(/\\n/g, '\n')
+              .replace(/\\r/g, '\r')
+              .replace(/\\t/g, '\t');
+
+            // Show modal with custom title including connection info if applicable
+            const frameCount = result.frameCount || 0;
+            const plural = frameCount !== 1 ? 's' : '';
+            let title = `Stream Decompilation: ${streamId} (${frameCount} frame${plural})`;
+            if (selectedConnectionId) {
+              const conn = connections.find(c => c.connectionId === selectedConnectionId);
+              const connLabel = conn ? `${conn.sourceIp}` : selectedConnectionId;
+              title = `Stream Decompilation: ${streamId} from ${connLabel} (${frameCount} frame${plural})`;
+            }
+            showFdoModal(unescapedSource, title
+            );
+          } else {
+            toast(result.error || 'Decompilation failed', 'err');
+          }
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          toast('Failed to decompile stream: ' + err.message, 'err');
         }
       });
-      pxStop.addEventListener('click', async () => {
-        if (!proxyRunning) return; // Not running
-        await fetch('/api/proxy/stop', { method: 'POST' });
-        proxyRunning = false;
-        localStorage.setItem('proxyRunning', 'false');
-        stopLive();
-        updateProxyButtons();
-        toast('Proxy stopped');
-      });
+
       exportJsonlBtn.addEventListener('click', async () => {
         try {
           const currentTab = document.querySelector('.tab.active');
@@ -1073,12 +2379,25 @@
           let dataSource = '';
 
           if (isPcapTab) {
-            // Export PCAP analysis data (client-side)
-            const frames = activeFrames(); // This will return framesPcap when on PCAP tab
+            // Export PCAP analysis data (client-side) with optional connection filtering
+            let frames = activeFrames(); // This will return framesPcap when on PCAP tab
 
             if (frames.length === 0) {
               toast('No PCAP frames to export', 'err');
               return;
+            }
+
+            // Apply connection filtering if a connection is selected
+            if (selectedConnectionId) {
+              frames = frames.filter(frameData => {
+                const obj = frameData.obj;
+                return obj && obj.connectionId === selectedConnectionId;
+              });
+
+              if (frames.length === 0) {
+                toast('No frames found for selected connection', 'err');
+                return;
+              }
             }
 
             // Convert frame objects to JSONL format
@@ -1096,32 +2415,54 @@
               }
             }
 
-            filename = 'pcap_analysis.jsonl';
-            dataSource = 'PCAP analysis';
+            // Update filename based on connection filter
+            if (selectedConnectionId) {
+              const conn = connections.find(c => c.connectionId === selectedConnectionId);
+              const connLabel = conn ? `${conn.sourceIp}` : selectedConnectionId;
+              filename = `pcap_analysis_${connLabel}.jsonl`;
+              dataSource = `PCAP analysis (${connLabel})`;
+            } else {
+              filename = 'pcap_analysis.jsonl';
+              dataSource = 'PCAP analysis (all connections)';
+            }
 
           } else if (isProxyTab) {
-            // Export live session data (server-side)
-            const response = await fetch('/api/session/frames');
+            // Export live session data (server-side JSONL stream) with optional connection filtering
+            let url = '/api/session/frames';
+            if (selectedConnectionId) {
+              url += `?connectionId=${encodeURIComponent(selectedConnectionId)}`;
+            }
+
+            const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`Failed to fetch session frames: ${response.status}`);
             }
 
-            const framesJson = await response.json();
+            // Response is now JSONL (newline-delimited JSON), not a JSON array
+            const text = await response.text();
+            const jsonlLines = text.trim().split('\n').filter(line => line.trim());
 
-            // Parse each frame JSON string and re-stringify for clean export
-            for (const frameJson of framesJson) {
-              try {
-                const frameObj = JSON.parse(frameJson);
-                lines.push(JSON.stringify(frameObj));
-              } catch (e) {
-                console.warn('Failed to parse frame:', frameJson, e);
-                // Include the original JSON string if parsing fails
-                lines.push(frameJson);
-              }
+            // Each line is already a valid JSON object
+            for (const line of jsonlLines) {
+              lines.push(line);
             }
 
-            filename = 'session.summary.jsonl';
-            dataSource = 'live session';
+            // Generate timestamp-based filename with frame count
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+            const frameCountSuffix = lines.length > 0 ? `-${lines.length}f` : '';
+
+            // Update filename and data source based on connection filter
+            if (selectedConnectionId) {
+              const conn = connections.find(c => c.connectionId === selectedConnectionId);
+              const connLabel = conn ? `${conn.sourceIp}` : selectedConnectionId;
+              filename = `wiretap-proxy-${dateStr}-${timeStr}-${connLabel}${frameCountSuffix}.jsonl`;
+              dataSource = `live session (${connLabel})`;
+            } else {
+              filename = `wiretap-proxy-${dateStr}-${timeStr}${frameCountSuffix}.jsonl`;
+              dataSource = 'live session (all connections)';
+            }
 
           } else {
             toast('Unable to determine data source for export', 'err');
@@ -1227,16 +2568,21 @@
           // Show target tab panel
           document.getElementById('tab-' + tabName).classList.add('active');
 
-          // Toggle visible timeline
+          // Toggle visible timeline and proxy controls
           const timelineProxy = document.getElementById('timeline-proxy');
           const timelinePcap = document.getElementById('timeline-pcap');
+          const proxyControls = document.getElementById('proxy-controls');
 
           if (tabName === 'proxy') {
             timelineProxy.style.display = '';
             timelinePcap.style.display = 'none';
+            proxyControls.style.display = 'block';
+            // Update proxy status when switching to proxy tab
+            updateProxyStatus();
           } else if (tabName === 'pcap') {
             timelineProxy.style.display = 'none';
             timelinePcap.style.display = '';
+            proxyControls.style.display = 'none';
           }
 
           // Update URL hash without triggering page reload
@@ -1262,6 +2608,7 @@
         switchToTab(tabName);
       }));
 
+
       // Handle hash changes (for browser back/forward buttons)
       window.addEventListener('hashchange', () => {
         const hash = window.location.hash.substring(1);
@@ -1277,11 +2624,8 @@
 
 
 
-             // Load proxy configuration on page load
-      loadProxyConfig();
-
-      // Initialize button states
-      updateProxyButtons();
+             // Check initial proxy status on page load
+      checkInitialProxyStatus();
 
       // Handle initial hash fragment for tab navigation
       handleInitialHash();
@@ -1289,18 +2633,10 @@
       // Initialize streamId filtering feature
       initStreamIdFiltering();
 
-       // Save proxy configuration when values change
-      pxListen.addEventListener('change', saveProxyConfig);
-      pxHost.addEventListener('change', saveProxyConfig);
-      pxPort.addEventListener('change', saveProxyConfig);
-
-
-      // Periodic session metadata update for GUI mode
-      if (isGuiMode) {
-        setInterval(() => {
-          updateSessionMetadata();
-        }, 1000); // Update every second
-      }
+      // Periodic session metadata update
+      setInterval(() => {
+        updateSessionMetadata();
+      }, 1000); // Update every second
 
       // Periodic proxy status check to keep UI in sync
       setInterval(() => {
@@ -1310,8 +2646,24 @@
             .then(status => {
               if (status.running !== proxyRunning) {
                 proxyRunning = status.running;
-                updateProxyButtons();
-                if (!status.running) {
+
+                // Update proxy controls UI
+                const statusDot = document.getElementById('proxy-status-dot');
+                const statusText = document.getElementById('proxy-status-text');
+                const startBtn = document.getElementById('px-start');
+                const stopBtn = document.getElementById('px-stop');
+
+                if (status.running) {
+                  statusDot.classList.add('running');
+                  statusText.textContent = 'Proxy Status: Running (Port 5190)';
+                  startBtn.style.display = 'none';
+                  stopBtn.style.display = 'inline-block';
+                } else {
+                  statusDot.classList.remove('running');
+                  statusText.textContent = 'Proxy Status: Stopped';
+                  startBtn.style.display = 'inline-block';
+                  stopBtn.style.display = 'none';
+
                   // If proxy stopped unexpectedly, update localStorage
                   localStorage.setItem('proxyRunning', 'false');
                   // Stop live stream if it was connected
@@ -1323,19 +2675,78 @@
               // If we can't reach the server, assume proxy is stopped
               if (proxyRunning) {
                 proxyRunning = false;
-                updateProxyButtons();
                 localStorage.setItem('proxyRunning', 'false');
                 stopLive();
+
+                // Update UI to show stopped state
+                const statusDot = document.getElementById('proxy-status-dot');
+                const statusText = document.getElementById('proxy-status-text');
+                const startBtn = document.getElementById('px-start');
+                const stopBtn = document.getElementById('px-stop');
+
+                statusDot.classList.remove('running');
+                statusText.textContent = 'Proxy Status: Stopped';
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
               }
             });
 
-            // Also check live stream health and reconnect if needed
-            if (proxyRunning && !window.es) {
-              console.log('Live stream not connected, attempting to reconnect...');
-              startLive();
-            }
+          // Also check live stream health and reconnect if needed
+          if (proxyRunning && !window.es) {
+            console.log('Live stream not connected, attempting to reconnect...');
+            startLive();
+          }
         }
       }, 5000); // Check every 5 seconds
+
+      // Proxy button event listeners (added at end to ensure DOM elements exist)
+      document.getElementById('px-start').addEventListener('click', async () => {
+        const startBtn = document.getElementById('px-start');
+        const stopBtn = document.getElementById('px-stop');
+
+        startBtn.disabled = true;
+        startBtn.textContent = 'Starting...';
+
+        try {
+          const response = await fetch('/api/proxy/start', { method: 'POST' });
+          if (response.ok) {
+            toast('Proxy started successfully', 'ok');
+            updateProxyStatus();
+          } else {
+            throw new Error('Failed to start proxy');
+          }
+        } catch (err) {
+          console.error('Error starting proxy:', err);
+          toast('Failed to start proxy: ' + err.message, 'err');
+        } finally {
+          startBtn.disabled = false;
+          startBtn.textContent = 'Start Proxy';
+        }
+      });
+
+      document.getElementById('px-stop').addEventListener('click', async () => {
+        const startBtn = document.getElementById('px-start');
+        const stopBtn = document.getElementById('px-stop');
+
+        stopBtn.disabled = true;
+        stopBtn.textContent = 'Stopping...';
+
+        try {
+          const response = await fetch('/api/proxy/stop', { method: 'POST' });
+          if (response.ok) {
+            toast('Proxy stopped successfully', 'ok');
+            updateProxyStatus();
+          } else {
+            throw new Error('Failed to stop proxy');
+          }
+        } catch (err) {
+          console.error('Error stopping proxy:', err);
+          toast('Failed to stop proxy: ' + err.message, 'err');
+        } finally {
+          stopBtn.disabled = false;
+          stopBtn.textContent = 'Stop Proxy';
+        }
+      });
 
     </script>
   </body>

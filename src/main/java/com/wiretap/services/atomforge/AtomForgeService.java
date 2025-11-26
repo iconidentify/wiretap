@@ -31,6 +31,12 @@ public interface AtomForgeService {
     String decompileSingleFrame(FrameSummary frame);
 
     /**
+     * Decompile multiple frames synchronously.
+     * Returns decompiled source code or error message.
+     */
+    String decompileMultipleFrames(java.util.List<FrameSummary> frames);
+
+    /**
      * Check if the service is currently available based on last health check.
      */
     boolean isAvailable();

@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Lightweight TCP proxy for AOL traffic that mirrors frames to LiveBus as JSONL.
@@ -24,6 +25,7 @@ final class TcpProxyService implements Closeable {
     private volatile boolean running;
     private final List<Pipe> pipes = new ArrayList<>();
     private ServerSocket serverSocket;
+    private final ConnectionRegistry connectionRegistry = new ConnectionRegistry();
 
     TcpProxyService(int listenPort, String destHost, int destPort) {
         this.listenPort = listenPort;
@@ -43,11 +45,21 @@ final class TcpProxyService implements Closeable {
                 WireTapLog.debug("AOL-PROXY listening on :" + listenPort + " -> " + destHost + ":" + destPort);
                 while (running && !serverSocket.isClosed()) {  // Check closed
                     Socket client = serverSocket.accept();
-                    WireTapLog.debug("AOL-PROXY client connected: " + client.getRemoteSocketAddress());
+
+                    // Generate connection ID and extract client info
+                    String connectionId = UUID.randomUUID().toString().substring(0, 8);
+                    String clientIp = client.getInetAddress().getHostAddress();
+                    int clientPort = client.getPort();
+
+                    WireTapLog.debug("AOL-PROXY client connected: " + client.getRemoteSocketAddress() + " [" + connectionId + "]");
+
+                    // Register connection
+                    ConnectionInfo connectionInfo = connectionRegistry.registerConnection(connectionId, clientIp, clientPort);
+
                     Socket serverSock = new Socket();
                     serverSock.connect(new InetSocketAddress(destHost, destPort));
-                    Pipe c2s = new Pipe(client, serverSock, true);
-                    Pipe s2c = new Pipe(serverSock, client, false);
+                    Pipe c2s = new Pipe(client, serverSock, true, connectionInfo);
+                    Pipe s2c = new Pipe(serverSock, client, false, connectionInfo);
                     synchronized (pipes) { pipes.add(c2s); pipes.add(s2c); }
                     new Thread(c2s).start();
                     new Thread(s2c).start();
@@ -59,6 +71,8 @@ final class TcpProxyService implements Closeable {
     }
 
     boolean isRunning() { return running; }
+
+    ConnectionRegistry getConnectionRegistry() { return connectionRegistry; }
 
     @Override
     public void close() {
@@ -80,14 +94,23 @@ final class TcpProxyService implements Closeable {
             }
             pipes.clear();
         }
+        // Reset connection tracking when proxy stops
+        connectionRegistry.reset();
     }
 
     private static final class Pipe implements Runnable, Closeable {
         private final Socket in;
         private final Socket out;
         private final boolean c2s;
+        private final ConnectionInfo connectionInfo;
         private byte[] residual = new byte[0];
-        private Pipe(Socket in, Socket out, boolean c2s) { this.in = in; this.out = out; this.c2s = c2s; }
+
+        private Pipe(Socket in, Socket out, boolean c2s, ConnectionInfo connectionInfo) {
+            this.in = in;
+            this.out = out;
+            this.c2s = c2s;
+            this.connectionInfo = connectionInfo;
+        }
         @Override
         public void run() {
             try {
@@ -102,6 +125,10 @@ final class TcpProxyService implements Closeable {
                 }
             } catch (IOException ignored) {
             } finally {
+                // Mark connection as closed
+                if (connectionInfo != null) {
+                    connectionInfo.markClosed();
+                }
                 try { close(); } catch (IOException ignored) {}
             }
         }
@@ -129,7 +156,7 @@ final class TcpProxyService implements Closeable {
                 start = off;
                 end = off + len;
             }
-            int consumed = scanAol(a, start, end, dir);
+            int consumed = scanAol(a, start, end, dir, connectionInfo);
             int leftover = end - (start + consumed);
             if (leftover > 0) {
                 residual = new byte[leftover];
@@ -141,7 +168,7 @@ final class TcpProxyService implements Closeable {
         }
     }
 
-    private static int scanAol(byte[] a, int start, int end, String dir) {
+    private static int scanAol(byte[] a, int start, int end, String dir, ConnectionInfo connectionInfo) {
         int i = start;
         int frameCount = 0;
 
@@ -152,8 +179,14 @@ final class TcpProxyService implements Closeable {
             int len = ((a[i+3] & 0xFF) << 8) | (a[i+4] & 0xFF);
             int total = 6 + len;
             if (i + total > end) break;
-            FrameSummary fs = summarize(dir, a, i, total);
+            FrameSummary fs = summarize(dir, a, i, total, connectionInfo);
             LiveBus.publish(fs.toJson(false));
+
+            // Record frame for connection tracking
+            if (connectionInfo != null) {
+                connectionInfo.incrementFrameCount();
+            }
+
             frameCount++;
             i += total;
         }
@@ -165,9 +198,18 @@ final class TcpProxyService implements Closeable {
         return i - start;
     }
 
-    private static FrameSummary summarize(String dir, byte[] f, int off, int length) {
+    private static FrameSummary summarize(String dir, byte[] f, int off, int length, ConnectionInfo connectionInfo) {
         // Use centralized FrameParser.parseLite() for real-time parsing
-        return FrameParser.parseLite(dir, f, off, length);
+        FrameSummary fs = FrameParser.parseLite(dir, f, off, length);
+
+        // Add connection information if available
+        if (connectionInfo != null) {
+            fs.connectionId = connectionInfo.connectionId;
+            fs.sourceIp = connectionInfo.sourceIp;
+            fs.sourcePort = connectionInfo.sourcePort;
+        }
+
+        return fs;
     }
 
     private static String bytesToHexLower(byte[] a, int off, int len) {
