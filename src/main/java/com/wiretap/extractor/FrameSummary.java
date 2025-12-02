@@ -6,6 +6,7 @@ public final class FrameSummary {
     public String token;
     public String streamId;
     public String type;
+    public String typeName;  // P3 packet type name (DATA, ACK, NAK, HBEAT, etc.)
     public String tx;
     public String rx;
     public int len;
@@ -29,6 +30,9 @@ public final class FrameSummary {
     public Boolean hasError;    // true if any anomaly detected
     public String errorCodes;   // comma-separated error codes (e.g., "CRC")
 
+    // NAK packet details
+    public String nakReason;    // For NAK packets: CRC_ERROR, SEQUENCE_ERROR, LENGTH_ERROR, PACKET_BUILD_ERROR
+
     // FDO decompilation
     public String fdoSource;    // Decompiled FDO source code or formatted data frame info
 
@@ -46,6 +50,7 @@ public final class FrameSummary {
         if (token != null) est += 10 + token.length();
         if (streamId != null) est += 14 + streamId.length();
         if (type != null) est += 9 + type.length();
+        if (typeName != null) est += 14 + typeName.length();
         if (tx != null) est += 7 + tx.length();
         if (rx != null) est += 7 + rx.length();
         if (atoms != null) est += 11 + atoms.length();
@@ -56,6 +61,7 @@ public final class FrameSummary {
         if (payloadText != null) est += 16 + payloadText.length();
         if (hasError != null) est += 12;
         if (errorCodes != null) est += 14 + errorCodes.length();
+        if (nakReason != null) est += 14 + nakReason.length();
         if (protocolTag != null) est += 16 + protocolTag.length();
         if (tokenName != null) est += 14 + tokenName.length();
         if (tokenDesc != null) est += 14 + tokenDesc.length();
@@ -73,6 +79,7 @@ public final class FrameSummary {
         if (token != null) { if (!first) sb.append(comma); add(sb,"token",token,""); first = false; }
         if (streamId != null) { if (!first) sb.append(comma); add(sb,"streamId",streamId,""); first = false; }
         if (type != null) { if (!first) sb.append(comma); add(sb,"type",type,""); first = false; }
+        if (typeName != null) { if (!first) sb.append(comma); add(sb,"typeName",typeName,""); first = false; }
         if (tx != null) { if (!first) sb.append(comma); add(sb,"tx",tx,""); first = false; }
         if (rx != null) { if (!first) sb.append(comma); add(sb,"rx",rx,""); first = false; }
 
@@ -92,6 +99,7 @@ public final class FrameSummary {
         if (docRef != null) { sb.append(comma); add(sb,"docRef",docRef,""); }
         if (hasError != null) { sb.append(comma); sb.append(q).append("hasError").append(q).append(":").append(hasError); }
         if (errorCodes != null) { sb.append(comma); add(sb,"errorCodes",errorCodes,""); }
+        if (nakReason != null) { sb.append(comma); add(sb,"nakReason",nakReason,""); }
         if (fdoSource != null) { sb.append(comma); add(sb,"fdoSource",fdoSource,""); }
         if (connectionId != null) { sb.append(comma); add(sb,"connectionId",connectionId,""); }
         if (sourceIp != null) { sb.append(comma); add(sb,"sourceIp",sourceIp,""); }

@@ -30,9 +30,21 @@ class FrameParserTest {
             (byte) 0x00, (byte) 0x00
     };
 
-    // Test data: Short frame (9 bytes - special "9B" token)
-    private static final byte[] SAMPLE_FRAME_9B = new byte[]{
-            (byte) 0x5A, (byte) 0x01, (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x00, (byte) 0x20, (byte) 0x9B
+    // Test data: ACK control packet (9 bytes - no token/streamId)
+    // Type 0x24 = ACK, wLength=3 means no data payload
+    private static final byte[] SAMPLE_FRAME_ACK = new byte[]{
+            (byte) 0x5A, (byte) 0x01, (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x05, (byte) 0x03, (byte) 0x24, (byte) 0x0D
+    };
+
+    // Test data: NAK control packet with SEQUENCE_ERROR (0x02)
+    // wLength=4 means TX+RX+type+1 byte of data
+    private static final byte[] SAMPLE_FRAME_NAK = new byte[]{
+            (byte) 0x5A, (byte) 0x01, (byte) 0x02, (byte) 0x00, (byte) 0x04, (byte) 0x10, (byte) 0x10, (byte) 0xA5, (byte) 0x02, (byte) 0x0D
+    };
+
+    // Test data: HBEAT control packet
+    private static final byte[] SAMPLE_FRAME_HBEAT = new byte[]{
+            (byte) 0x5A, (byte) 0x01, (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x00, (byte) 0x26, (byte) 0x0D
     };
 
     @Test
@@ -44,8 +56,8 @@ class FrameParserTest {
         assertNotNull(result.ts);
         assertEquals(6, result.len);  // From bytes [3-4]
         assertEquals("0x20", result.type);  // Byte 7
-        assertEquals("0x00", result.tx);    // Byte 5
-        assertEquals("0x00", result.rx);    // Byte 6
+        assertEquals("0", result.tx);    // Byte 5
+        assertEquals("0", result.rx);    // Byte 6
     }
 
     @Test
@@ -73,12 +85,64 @@ class FrameParserTest {
     }
 
     @Test
-    void testParse9BFrame() {
+    void testParseTypeName() {
         Instant now = Instant.now();
-        FrameSummary result = FrameParser.parse("C->S", now, SAMPLE_FRAME_9B, 0, SAMPLE_FRAME_9B.length);
+        FrameSummary result = FrameParser.parse("C->S", now, SAMPLE_FRAME_AT, 0, SAMPLE_FRAME_AT.length);
 
-        assertEquals("9B", result.token);
-        assertNull(result.streamId);  // Too short for streamId
+        assertEquals("DATA", result.typeName);  // Type 0x20 = DATA
+    }
+
+    @Test
+    void testParseACKPacket() {
+        Instant now = Instant.now();
+        FrameSummary result = FrameParser.parse("S->C", now, SAMPLE_FRAME_ACK, 0, SAMPLE_FRAME_ACK.length);
+
+        assertEquals("ACK", result.typeName);
+        assertEquals("0x24", result.type);
+        assertNull(result.token);     // Control packets have no token
+        assertNull(result.streamId);  // Control packets have no streamId
+        assertEquals("5", result.tx);  // TX seq
+        assertEquals("3", result.rx);  // RX seq
+    }
+
+    @Test
+    void testParseNAKPacket() {
+        Instant now = Instant.now();
+        FrameSummary result = FrameParser.parse("C->S", now, SAMPLE_FRAME_NAK, 0, SAMPLE_FRAME_NAK.length);
+
+        assertEquals("NAK", result.typeName);
+        assertEquals("0xA5", result.type);  // 0xA5 = NAK with direction bit
+        assertNull(result.token);     // Control packets have no token
+        assertNull(result.streamId);  // Control packets have no streamId
+        assertEquals("SEQUENCE_ERROR", result.nakReason);  // data[0] = 0x02
+        assertEquals("16", result.tx);  // TX = 0x10 = 16
+        assertEquals("16", result.rx);  // RX = 0x10 = 16
+    }
+
+    @Test
+    void testParseHBEATPacket() {
+        Instant now = Instant.now();
+        FrameSummary result = FrameParser.parse("S->C", now, SAMPLE_FRAME_HBEAT, 0, SAMPLE_FRAME_HBEAT.length);
+
+        assertEquals("HBEAT", result.typeName);
+        assertEquals("0x26", result.type);
+        assertNull(result.token);     // Control packets have no token
+        assertNull(result.streamId);  // Control packets have no streamId
+    }
+
+    @Test
+    void testParseLiteTypeName() {
+        FrameSummary result = FrameParser.parseLite("C->S", SAMPLE_FRAME_AT, 0, SAMPLE_FRAME_AT.length);
+        assertEquals("DATA", result.typeName);
+    }
+
+    @Test
+    void testParseLiteACKPacket() {
+        FrameSummary result = FrameParser.parseLite("S->C", SAMPLE_FRAME_ACK, 0, SAMPLE_FRAME_ACK.length);
+
+        assertEquals("ACK", result.typeName);
+        assertNull(result.token);     // Control packets have no token
+        assertNull(result.streamId);  // Control packets have no streamId
     }
 
     @Test

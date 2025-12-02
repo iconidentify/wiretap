@@ -26,11 +26,11 @@
       .btn:disabled { opacity: 0.5; cursor: not-allowed; }
       .btn { appearance: none; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.2s ease; }
       .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--secondary); }
-      .output { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; }
+      .output { margin-top: 16px; display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; }
       .card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; height: 100%; display: flex; flex-direction: column; background: var(--surface-card); }
       .card header { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-card); }
       .card pre { margin: 0; padding: 16px 20px; max-height: 480px; overflow: auto; font-size: 13px; line-height: 1.5; background: var(--surface); color: var(--text); }
-      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; overflow-y: auto; }
+      .timeline { position: relative; display: grid; gap: 10px; margin-top: 16px; flex: 1; overflow-y: auto; overflow-x: auto; }
       /* Professional JSON syntax highlighting */
       .hl-key { color: var(--primary); }
       .hl-string { color: var(--success); }
@@ -49,18 +49,62 @@
       .frame.c2s { border-left: 4px solid var(--primary); }
       .frame.s2c { border-left: 4px solid var(--success); }
       .group-header { position: sticky; top: 0; z-index: 5; background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-      .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; margin-bottom: 8px; }
-      .pill { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 11px; }
-      .dir-c2s { color: var(--primary); border-color: rgba(37, 99, 235, 0.3); background: rgba(37, 99, 235, 0.1); }
-      .dir-s2c { color: var(--success); border-color: rgba(5, 150, 105, 0.3); background: rgba(5, 150, 105, 0.1); }
-      .prot { color: #0891b2; border-color: rgba(8, 145, 178, 0.3); background: rgba(8, 145, 178, 0.1); }
-      .crc-err { color: rgba(239, 68, 68, 0.7); opacity: 0.8; }
+      .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; margin-bottom: 8px; }
+      .meta-fields { display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; }
+      /* Base pill - neutral gray default */
+      .pill { 
+        padding: 3px 7px; 
+        border-radius: 4px; 
+        border: 1px solid var(--border); 
+        background: var(--surface-hover); 
+        color: var(--text-secondary); 
+        font-size: 11px; 
+        font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; 
+        white-space: nowrap; 
+        text-align: center; 
+        flex-shrink: 0;
+        transition: all 0.12s ease;
+      }
+      .pill:hover { border-color: var(--border-hover); }
+      /* Pill label styling */
+      .pill-label { color: var(--text-secondary); opacity: 0.7; }
+      .pill-value { color: var(--text); }
+      /* Fixed min-widths for scanability */
+      .pill-dir { min-width: 38px; }
+      .pill-type { min-width: 44px; }
+      .pill-len { min-width: 32px; }
+      .pill-seq { min-width: 44px; }
+      .pill-token { min-width: 28px; max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+      .pill-sid { min-width: 36px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+      .pill-time { min-width: 48px; opacity: 0.7; }
+      .pill-crc { min-width: 16px; color: #fff; border-color: var(--error); background: var(--error); font-weight: 600; }
+      /* Direction - subtle color hint */
+      .dir-c2s { border-left: 2px solid var(--primary); }
+      .dir-s2c { border-left: 2px solid var(--success); }
+      .pill-dir:hover { border-color: var(--border); background: var(--surface-hover); border-left-color: inherit; }
+      /* P3 packet type styling - mostly neutral except errors */
+      .type-pill { font-weight: 500; }
+      .type-ack, .type-rak, .type-acknow { opacity: 0.75; }
+      .type-hbeat { opacity: 0.6; font-style: italic; }
+      .type-nak { color: var(--error); border-color: var(--error); background: rgba(239, 68, 68, 0.12); font-weight: 600; }
+      .type-init, .type-setup { border-color: var(--warning); }
+      .type-ss, .type-ssr { border-color: #a78bfa; }
+      .type-reset { color: var(--error); border-color: var(--error); }
+      .type-unknown { border-style: dashed; opacity: 0.6; }
+      /* Hex byte highlighting */
+      .hex { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+      .hex-byte { transition: background 0.08s ease, color 0.08s ease; }
+      .hex-byte-hover { background: rgba(59, 130, 246, 0.55); color: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(59,130,246,0.9); }
+      .hex-byte-selected { background: rgba(245, 158, 11, 0.45); color: #111; border-radius: 2px; }
+      /* Hoverable pill that highlights hex */
+      .pill-hoverable { cursor: pointer; }
+      .pill-hoverable:hover { background: var(--surface); border-color: var(--primary); }
+      .pill-muted { opacity: 0.35; pointer-events: none; }
       .popover { position: absolute; z-index: 20; right: 12px; top: 12px; max-width: 520px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 12px 16px; display:none; }
       .popover pre { max-height: 300px; overflow:auto; font-size: 12px; margin:0; background: var(--surface-hover); padding: 8px; border-radius: 4px; }
       .actions { margin-left: auto; display: inline-flex; gap: 6px; }
       .iconbtn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 6px 8px; cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
       .iconbtn:hover { background: var(--surface-hover); border-color: var(--secondary); }
-      .hex { font-family: ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; opacity: .9; }
       .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px rgba(255,255,255,0.8); }
       .timer { opacity: 0.8; }
       #toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; }
@@ -90,39 +134,51 @@
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
 
-      /* StreamId selection and highlighting */
-      .stream-id-pill {
+      /* StreamId selection and highlighting - neutral by default */
+      .pill-sid {
         cursor: pointer;
         position: relative;
         transition: all 0.15s ease;
+        color: inherit;
       }
-      .stream-id-pill:hover {
-        background: rgba(59, 130, 246, 0.08);
-        border-color: rgba(59, 130, 246, 0.4);
+      .pill-sid:hover {
+        background: var(--surface);
+        border-color: var(--primary);
+        color: var(--text);
       }
-      .stream-id-pill:focus {
+      .pill-sid:focus {
         outline: none;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
       }
+      /* Selected state - only when actively selected */
       .stream-selected {
         background: var(--primary) !important;
         color: white !important;
         border-color: var(--primary) !important;
         font-weight: 600;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
       }
+      /* Other pills with same streamId when one is selected */
       .stream-highlighted {
-        background: rgba(59, 130, 246, 0.15) !important;
+        background: rgba(59, 130, 246, 0.12) !important;
         border-color: var(--primary) !important;
         color: var(--primary) !important;
-        font-weight: 500;
-        animation: pulse-highlight 0.4s ease-out;
       }
+      /* Hover preview before clicking */
       .stream-hover-preview {
-        background: rgba(59, 130, 246, 0.12) !important;
-        border-color: rgba(59, 130, 246, 0.5) !important;
-        color: var(--primary) !important;
-        transition: all 0.15s ease;
+        border-color: rgba(59, 130, 246, 0.4) !important;
+      }
+      /* Frame row highlight when its stream is selected */
+      .frame-stream-selected {
+        background: rgba(59, 130, 246, 0.04);
+      }
+      .frames-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: -4px;
+      }
+      .frames-header .status-indicator {
+        margin-right: 0;
       }
       @keyframes pulse-highlight {
         0%, 100% { transform: scale(1); }
@@ -138,6 +194,82 @@
         clip: rect(0, 0, 0, 0);
         white-space: nowrap;
         border-width: 0;
+      }
+
+      /* Stream Rail - Visual connector for stream selection */
+      .timeline.has-stream-selection {
+        padding-left: 48px;
+      }
+      .stream-rail {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 40px;
+        pointer-events: none;
+        animation: rail-reveal 0.25s ease-out;
+      }
+      .stream-rail > * {
+        pointer-events: auto;
+      }
+      .stream-rail-line {
+        position: absolute;
+        left: 50%;
+        width: 2px;
+        background: var(--accent);
+        transform: translateX(-50%);
+        opacity: 0.5;
+      }
+      .stream-rail-node {
+        position: absolute;
+        left: 50%;
+        width: 16px;
+        height: 2px;
+        background: var(--accent);
+      }
+      .stream-rail-node::before {
+        content: '';
+        position: absolute;
+        left: -5px;
+        top: -4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
+      }
+      .stream-rail-action {
+        position: fixed;
+        bottom: 24px;
+        left: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, var(--accent) 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(74, 158, 255, 0.4);
+        transition: transform 0.2s, box-shadow 0.2s;
+        z-index: 1000;
+      }
+      .stream-rail-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(74, 158, 255, 0.5);
+      }
+      .stream-rail-action-icon {
+        font-size: 16px;
+      }
+      .stream-rail-action-count {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: 0.9;
+      }
+      @keyframes rail-reveal {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
       }
 
       /* FDO Modal */
@@ -202,81 +334,6 @@
         display: flex;
         gap: 8px;
         justify-content: flex-end;
-      }
-
-      /* Session Recovery Modal */
-      #recovery-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 100;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-      }
-      #recovery-modal.active {
-        display: flex;
-      }
-      .recovery-content {
-        background: var(--surface-card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        max-width: 500px;
-        width: 100%;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-      }
-      .recovery-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px 24px;
-        border-bottom: 1px solid var(--border);
-      }
-      .recovery-header h2 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-      }
-      .recovery-body {
-        padding: 24px;
-      }
-      .recovery-info {
-        margin-bottom: 20px;
-        color: var(--text-secondary);
-        line-height: 1.6;
-      }
-      .recovery-stats {
-        background: var(--surface);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
-      }
-      .recovery-stats .stat-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-      .recovery-stats .stat-row:last-child {
-        margin-bottom: 0;
-      }
-      .recovery-stats .stat-label {
-        color: var(--text-secondary);
-      }
-      .recovery-stats .stat-value {
-        font-weight: 600;
-        color: var(--text);
-      }
-      .recovery-actions {
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-      }
-      .recovery-actions .btn {
-        min-width: 100px;
       }
 
       /* Session disk usage indicator */
@@ -1003,29 +1060,18 @@
               </span>
             </div>
 
-            <!-- Proxy Controls -->
-            <div class="proxy-controls" id="proxy-controls">
-              <div class="proxy-status-section">
-                <div class="proxy-status">
-                  <span class="status-indicator">
-                    <span class="status-dot" id="proxy-status-dot"></span>
-                    <span id="proxy-status-text">Proxy Status: Stopped</span>
-                  </span>
-                </div>
-                <div class="proxy-actions">
-                  <button id="px-start" class="btn primary">Start Proxy</button>
-                  <button id="px-stop" class="btn danger" style="display: none;">Stop Proxy</button>
-                </div>
-              </div>
-            </div>
-
             <!-- Proxy Timeline and Output -->
             <section class="output">
               <div class="card">
                 <header>
-                  <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
+                  <div class="frames-header">
+                    <span class="status-indicator compact">
+                      <span class="status-dot" id="proxy-status-dot"></span>
+                    </span>
+                    <span>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></span>
+                  </div>
                   <div class="actions">
-                    <button id="decompile-stream" class="iconbtn" style="display: none;">Decompile Stream</button>
+                    <button id="decompile-stream-proxy" class="iconbtn" style="display: none;">Decompile Stream</button>
                     <button id="clear" class="iconbtn">Clear</button>
                     <button id="exportJsonl" class="iconbtn">Export JSONL</button>
                   </div>
@@ -1049,7 +1095,7 @@
             <header>
               <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
               <div class="actions">
-                <button id="decompile-stream" class="iconbtn" style="display: none;">Decompile Stream</button>
+                <button id="decompile-stream-pcap" class="iconbtn" style="display: none;">Decompile Stream</button>
                 <button id="clear" class="iconbtn">Clear</button>
                 <button id="exportJsonl" class="iconbtn">Export JSONL</button>
               </div>
@@ -1059,6 +1105,7 @@
         </section>
       </div>
     </main>
+
     <div id="toasts"></div>
     <!-- ARIA live region for screen reader announcements -->
     <div id="connection-announcer" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
@@ -1079,38 +1126,6 @@
       </div>
     </div>
 
-    <!-- Session Recovery Modal -->
-    <div id="recovery-modal">
-      <div class="recovery-content">
-        <div class="recovery-header">
-          <h2>Restore Previous Session?</h2>
-          <button class="iconbtn" id="recovery-close">X</button>
-        </div>
-        <div class="recovery-body">
-          <div class="recovery-info">
-            A previous capture session was found. Would you like to restore it?
-          </div>
-          <div class="recovery-stats">
-            <div class="stat-row">
-              <span class="stat-label">Frames captured:</span>
-              <span class="stat-value" id="recovery-frame-count">0</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Duration:</span>
-              <span class="stat-value" id="recovery-duration">0:00:00</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Size on disk:</span>
-              <span class="stat-value" id="recovery-size">0 KB</span>
-            </div>
-          </div>
-          <div class="recovery-actions">
-            <button class="btn" id="recovery-dismiss">Start Fresh</button>
-            <button class="btn primary" id="recovery-restore">Restore Session</button>
-          </div>
-        </div>
-      </div>
-    </div>
     <script>
       const dz = document.getElementById('dz');
       const fileInput = document.getElementById('file');
@@ -1180,8 +1195,6 @@
             startLive();
           } else {
             proxyRunning = false;
-            // Check for recoverable sessions when proxy is not running
-            checkForRecoverableSession();
           }
         } catch (err) {
           console.warn('Failed to check proxy status:', err);
@@ -1189,73 +1202,47 @@
         }
       }
 
-      // Check for recoverable sessions from previous runs
-      async function checkForRecoverableSession() {
-        try {
-          const res = await fetch('/api/sessions/current');
-          const data = await res.json();
-
-          if (data.recoverable && data.session) {
-            const session = data.session;
-            // Show recovery modal
-            document.getElementById('recovery-frame-count').textContent = session.frameCount.toLocaleString();
-            document.getElementById('recovery-duration').textContent = session.formattedDuration || '0:00:00';
-            document.getElementById('recovery-size').textContent = session.formattedSize || '0 KB';
-            document.getElementById('recovery-modal').classList.add('active');
-
-            // Store session ID for restoration
-            window.recoverableSessionId = session.id;
-          }
-        } catch (err) {
-          console.warn('Failed to check for recoverable session:', err);
-        }
-      }
-
-      // Recovery modal event handlers
-      document.getElementById('recovery-close').addEventListener('click', () => {
-        document.getElementById('recovery-modal').classList.remove('active');
-      });
-      document.getElementById('recovery-dismiss').addEventListener('click', () => {
-        document.getElementById('recovery-modal').classList.remove('active');
-      });
-      document.getElementById('recovery-restore').addEventListener('click', async () => {
-        document.getElementById('recovery-modal').classList.remove('active');
-        if (window.recoverableSessionId) {
-          await restoreSession(window.recoverableSessionId);
-        }
-      });
-
-      // Restore a previous session
-      async function restoreSession(sessionId) {
-        toast('Restoring session...', 'ok');
-        try {
-          const res = await fetch(`/api/session/frames?sessionId=${encodeURIComponent(sessionId)}`);
-          if (!res.ok) throw new Error('Failed to fetch session');
-
-          const text = await res.text();
-          const lines = text.trim().split('\n').filter(line => line.trim());
-
-          for (const line of lines) {
-            try {
-              const obj = JSON.parse(line);
-              const frameData = { obj, raw: line, isLive: false };
-              framesProxy.push(frameData);
-              renderFrame(obj, line, document.getElementById('timeline-proxy'));
-            } catch (e) {
-              console.warn('Failed to parse frame:', e);
-            }
-          }
-
-          totalFramesReceived = lines.length;
-          updateSessionMetadata();
-          toast(`Restored ${lines.length} frames from previous session`, 'ok');
-        } catch (err) {
-          toast('Failed to restore session: ' + err.message, 'err');
-        }
-      }
-      
 
       function toast(msg, kind){ const t=document.createElement('div'); t.className='toast ' + (kind||''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{ t.remove(); }, 3500); }
+
+      // P3 knowledge constants (summaries derived from protocol docs)
+      const P3_INFO = {
+        types: {
+          DATA: 'Carries app payload. tx increments; rx piggybacks cumulative ACK.',
+          ACK: 'Standalone ACK when no data to piggyback; frees window.',
+          NAK: 'Negative ACK. Triggers retransmit (Go-Back-N). See reason.',
+          HBEAT: 'Heartbeat when unacked data and no packets seen; expect ACK.',
+          SS: 'Synchronize Sequence; ask peer for state (await SSR).',
+          SSR: 'Response to SS; summarizes receive state; clears queued NAKs.',
+          INIT: 'Client handshake; seq starts at 0x7F then wraps to 0x10.',
+          RESET: 'Reset state (legacy).',
+          RAK: 'Reset ACK (legacy).',
+          SETUP: 'Session setup (legacy).',
+          ACKNOW: 'Control ACK (legacy)'
+        },
+        nakReasons: {
+          CRC_ERROR: 'CRC failure: corrupted frame. Sender should retransmit from earliest missing.',
+          SEQUENCE_ERROR: 'Out-of-order or missing sequence. Sender retransmits from missing seq.',
+          LENGTH_ERROR: 'Malformed length/header.',
+          PACKET_BUILD_ERROR: 'Peer failed to build a packet (internal).'
+        },
+        seq: {
+          range: 'Valid seq range 0x10–0x7F (wrap).',
+          tx: 'TX = sender’s packet sequence (increments on DATA only).',
+          rx: 'RX = cumulative ACK: last in-order seq received from peer.'
+        }
+      };
+      const TOKEN_INFO = {
+        AT: 'Atom stream (FDO forms/control)',
+        at: 'Atom stream variant',
+        AA: 'Article/text atom stream',
+        F9: 'XFER final data chunk',
+        xG: 'XFER-level ACK from client',
+        eJ: 'TA_OUT success verdict',
+        eK: 'TA_OUT negative verdict',
+        tj: 'XFER metadata (TJ_IN)',
+        tf: 'XFER start (TF_IN)'
+      };
 
       // FDO Modal functions
       function showFdoModal(source, title) {
@@ -1306,9 +1293,14 @@
 
       // Session metadata tracking
       let sessionStartTime = null;
+      let pcapStartTime = null;
       let totalFramesReceived = 0;
       let lastSequenceNumber = null;
       let sequenceGaps = 0;
+
+      // First frame timestamp tracking for relative time display
+      let firstProxyFrameTs = null;
+      let firstPcapFrameTs = null;
 
       const framesPcap = []; // {obj, raw}
       const framesProxy = []; // {obj, raw}
@@ -1317,6 +1309,15 @@
         return t && t.dataset.tab === 'proxy' && proxyRunning;
       }
       function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
+
+      // Get the correct decompile stream button based on active tab
+      function getDecompileStreamButton() {
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab && activeTab.dataset.tab === 'proxy') {
+          return document.getElementById('decompile-stream-proxy');
+        }
+        return document.getElementById('decompile-stream-pcap');
+      }
 
       // Connection management
       let connections = []; // Array of connection objects
@@ -1668,6 +1669,7 @@
         // reset UI
         document.getElementById('timeline-pcap').innerHTML = '';
         activeFrames().length = 0;
+        firstPcapFrameTs = null;
 
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -1802,19 +1804,59 @@
         return `${h}:${m}:${s}.${ms}`;
       }
 
-      function extractStreamIdFromHex(obj) {
-        // Return native streamId if present
-        if (obj.streamId) return obj.streamId;
-
-        // Fallback: Extract from fullHex for backward compatibility with old JSONL files
-        if (obj.fullHex && obj.fullHex.length >= 24) {
-          const hex = obj.fullHex.replace(/\s/g, '');
-          if (hex.length >= 24) {
-            // Bytes 10-11 are at hex positions 20-23 (each byte = 2 hex chars)
-            return '0x' + hex.substring(20, 24);
+      function parseTimestampValue(ts) {
+        if (ts === undefined || ts === null) return null;
+        if (typeof ts === 'number') return ts;
+        if (typeof ts === 'string') {
+          const numeric = Number(ts);
+          if (!Number.isNaN(numeric)) return numeric;
+          const timeMatch = ts.match(/^(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d+))?$/);
+          if (timeMatch) {
+            const [, hh, mm, ss, frac] = timeMatch;
+            const base = parseInt(hh, 10) * 3600 + parseInt(mm, 10) * 60 + parseInt(ss, 10);
+            const fraction = frac ? parseFloat(`0.${frac}`) : 0;
+            return base + fraction;
           }
         }
         return null;
+      }
+
+      function extractStreamIdFromHex(obj, format = 'hex') {
+        let raw = obj.streamId ?? null;
+
+        // Fallback: Extract from fullHex for backward compatibility with old JSONL files
+        if (!raw && obj.fullHex && obj.fullHex.length >= 24) {
+          const hex = obj.fullHex.replace(/\s/g, '');
+          if (hex.length >= 24) {
+            raw = '0x' + hex.substring(20, 24);
+          }
+        }
+
+        if (raw === null || raw === undefined) return null;
+
+        // Normalize to numeric value when possible
+        let numeric = null;
+        if (typeof raw === 'number') {
+          numeric = raw;
+        } else if (typeof raw === 'string') {
+          if (raw.startsWith('0x') || raw.startsWith('0X')) {
+            numeric = parseInt(raw, 16);
+          } else {
+            const parsed = Number(raw);
+            numeric = Number.isNaN(parsed) ? null : parsed;
+          }
+        }
+
+        if (numeric === null || Number.isNaN(numeric)) {
+          // Fall back to raw string if parsing failed
+          return format === 'dec' ? raw : raw.toString();
+        }
+
+        if (format === 'dec') {
+          return numeric.toString();
+        }
+
+        return '0x' + numeric.toString(16).padStart(4, '0');
       }
 
       function formatHex(hex) {
@@ -1837,6 +1879,54 @@
           out += hexPart + ' |' + ascii + '|\n';
         }
         return out.trimEnd();
+      }
+
+      // Format hex with individual byte spans for hover highlighting
+      function formatHexWithSpans(hex) {
+        if (!hex) return '';
+        const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
+        let out = '';
+        for (let i = 0; i < bytes.length; i += 16) {
+          const line = bytes.slice(i, i + 16);
+          let hexPart = '';
+          let ascii = '';
+          for (let j = 0; j < line.length; j++) {
+            const byteIdx = i + j;
+            const b = parseInt(line[j], 16);
+            hexPart += `<span class="hex-byte" data-byte="${byteIdx}">${line[j]}</span> `;
+            if (j === 7) hexPart += ' ';
+            const ch = (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+            ascii += `<span class="hex-byte" data-byte="${byteIdx}">${ch.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
+          }
+          const missing = 16 - line.length;
+          const padSpaces = missing * 3 + (line.length <= 8 ? 1 : 0);
+          hexPart += ' '.repeat(padSpaces);
+          out += hexPart + ' |' + ascii + '|\n';
+        }
+        return out.trimEnd();
+      }
+
+      // Highlight specific byte range in hex view
+      function highlightBytes(frameEl, start, end) {
+        const hexEl = frameEl.querySelector('.hex');
+        if (!hexEl) return;
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        if (end < start) return;
+        const safeStart = Math.max(0, start);
+        for (let i = safeStart; i <= end; i++) {
+          hexEl.querySelectorAll(`[data-byte="${i}"]`).forEach(el => {
+            el.classList.add('hex-byte-hover');
+          });
+        }
+      }
+
+      // Clear all byte highlights in a frame
+      function clearByteHighlights(frameEl) {
+        const hexEl = frameEl.querySelector('.hex');
+        if (!hexEl) return;
+        hexEl.querySelectorAll('.hex-byte-hover').forEach(el => {
+          el.classList.remove('hex-byte-hover');
+        });
       }
 
       function renderFrame(obj, raw, container) {
@@ -1865,50 +1955,136 @@
         if (obj.connectionId) {
           el.dataset.connectionId = obj.connectionId;
         }
+
+        // Direction styling - subtle left border hint
         const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
-        let tokenMeta = null; // Token metadata removed
+        const dirLabel = obj.dir === 'S->C' ? 'S→C' : 'C→S';
+
+        // CRC handling - only show indicator on error
         const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
-        const crcOk = hasCrcField ? !!obj.crcOk : true; // default to OK if missing
-        const crc = crcOk ? 'CRC OK' : 'CRC ERR';
-        const crcClass = crcOk ? '' : 'crc-err';
-        const dirTitle = obj.dir === 'S->C' ? 'Server → Client (from host to client)' : 'Client → Server (from client to host)';
-        const crcTitle = crcOk ? 'CRC-16 IBM matches computed value' : 'CRC-16 IBM mismatch (computed != header)';
-        const formattedTs = formatTimestamp(obj.ts);
-        const streamIdValue = extractStreamIdFromHex(obj);
-        const streamIdPill = streamIdValue
-          ? `<span class="pill stream-id-pill"
-                    data-stream-id="${streamIdValue}"
+        const crcOk = hasCrcField ? !!obj.crcOk : true;
+        const crcPill = (!hasCrcField || crcOk) ? '' : `<span class="pill pill-crc">!</span>`;
+
+        // P3 packet type handling
+        const baseTypeName = obj.typeName || obj.type || '?';
+        const typeClass = obj.typeName ? `type-${obj.typeName.toLowerCase()}` : 'type-unknown';
+        const isDataPacket = obj.typeName === 'DATA';
+        const isNakPacket = obj.typeName === 'NAK';
+
+        let typeDisplay = baseTypeName;
+        if (isNakPacket && obj.nakReason) {
+          const shortReason = obj.nakReason
+            .replace('_ERROR', '')
+            .replace('_', ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, c => c.toUpperCase());
+          typeDisplay = `NAK (${shortReason})`;
+        }
+
+        // Type hover range: highlight payload bytes for DATA, type byte otherwise
+        let typeHoverStart = 7;
+        let typeHoverEnd = 7;
+        const lenNumber = Number(obj.len);
+        const hasLenValue = Number.isFinite(lenNumber);
+
+        // Token pill - only for DATA packets with token
+        // Byte range: offset 8-9 (after 8-byte header)
+        let tokenPill = '';
+        if (isDataPacket && obj.token) {
+          tokenPill = `<span class="pill pill-token pill-hoverable" data-byte-start="8" data-byte-end="9"><span class="pill-label">token</span>: <span class="pill-value">${obj.token}</span></span>`;
+        }
+
+        // Stream ID pill - only for DATA packets with streamId
+        // Byte range: offset 10-11 (after token)
+        let streamIdPill = '';
+        const streamIdHex = isDataPacket ? extractStreamIdFromHex(obj, 'hex') : null;
+        const streamIdDecimal = isDataPacket ? extractStreamIdFromHex(obj, 'dec') : null;
+        if (streamIdHex && streamIdDecimal !== null) {
+          streamIdPill = `<span class="pill pill-sid pill-hoverable"
+                    data-stream-id="${streamIdDecimal}"
+                    data-byte-start="10"
+                    data-byte-end="11"
                     role="button"
-                    tabindex="0"
-                    aria-label="Stream ID ${streamIdValue}. Click to highlight all matching frames"
-                    title="Stream ID: ${streamIdValue} - Click to highlight all frames">sid: ${streamIdValue}</span>`
-          : '';
+                    tabindex="0"><span class="pill-label">sid</span>: <span class="pill-value">${streamIdDecimal}</span></span>`;
+        }
+
+        // Relative timestamp from frame's actual timestamp
+        // Use the earliest timestamp seen for current dataset
+        const parsedTs = parseTimestampValue(obj.ts);
+        const frameTs = parsedTs !== null ? parsedTs : Date.now() / 1000;
+        const isProxy = container.id === 'timeline-proxy';
+        if (isProxy) {
+          if (firstProxyFrameTs === null || frameTs < firstProxyFrameTs) firstProxyFrameTs = frameTs;
+        } else {
+          if (firstPcapFrameTs === null || frameTs < firstPcapFrameTs) firstPcapFrameTs = frameTs;
+        }
+        const firstTs = isProxy ? firstProxyFrameTs : firstPcapFrameTs;
+        const relSecs = firstTs !== null ? Math.max(0, frameTs - firstTs) : 0;
+        const formattedTs = formatTimestamp(obj.ts);
+        // Format: show 1 decimal for < 100s, whole seconds otherwise
+        const timeDisplay = relSecs < 100 ? `+${relSecs.toFixed(1)}s` : `+${Math.round(relSecs)}s`;
+
+        const dirPillHtml = `<span class="pill pill-dir ${dirPillClass}"><span class="pill-label">dir</span>: <span class="pill-value">${dirLabel}</span></span>`;
+        const typePillHtml = `<span class="pill pill-type type-pill ${typeClass} pill-hoverable" data-byte-start="${typeHoverStart}" data-byte-end="${typeHoverEnd}"><span class="pill-label">type</span>: <span class="pill-value">${typeDisplay}</span></span>`;
+        const lenDisplay = hasLenValue ? lenNumber.toString() : '—';
+        const lenPillHtml = `<span class="pill pill-len pill-hoverable" data-byte-start="3" data-byte-end="4"><span class="pill-label">len</span>: <span class="pill-value">${lenDisplay}</span></span>`;
+        const txValue = (obj.tx !== undefined && obj.tx !== null) ? obj.tx : '—';
+        const rxValue = (obj.rx !== undefined && obj.rx !== null) ? obj.rx : '—';
+        const txPillHtml = `<span class="pill pill-seq pill-hoverable" data-byte-start="5" data-byte-end="5"><span class="pill-label">tx</span>: <span class="pill-value">${txValue}</span></span>`;
+        const rxPillHtml = `<span class="pill pill-seq pill-hoverable" data-byte-start="6" data-byte-end="6"><span class="pill-label">rx</span>: <span class="pill-value">${rxValue}</span></span>`;
+        const timePillHtml = `<span class="pill pill-time"><span class="pill-label">dt</span>: <span class="pill-value">${timeDisplay}</span></span>`;
+        const tokenPillHtml = tokenPill || `<span class="pill pill-token pill-muted"><span class="pill-label">token</span>: <span class="pill-value">—</span></span>`;
+        const streamIdPillHtml = streamIdPill || `<span class="pill pill-sid pill-muted"><span class="pill-label">sid</span>: <span class="pill-value">—</span></span>`;
+
         el.innerHTML = `
           <div class="meta">
-            <span class="pill ${dirPillClass}" title="${dirTitle}">${obj.dir}</span>
-            <span class="pill" title="Token">token: ${obj.token ?? ''}</span>
-            ${streamIdPill}
-            <span class="pill" title="Frame type byte (header[7])">type: ${obj.type ?? ''}</span>
-            <span class="pill" title="Transmitter byte (header[5])">tx: ${obj.tx ?? ''}</span>
-            <span class="pill" title="Receiver byte (header[6])">rx: ${obj.rx ?? ''}</span>
-            <span class="pill" title="Payload length from header">len: ${obj.len ?? ''}</span>
-            <span class="pill ${crcClass}" title="${crcTitle}">${crc}</span>
-            <span class="pill muted" title="Frame timestamp (raw: ${obj.ts ?? ''})">ts: ${formattedTs || obj.ts || ''}</span>
+            <div class="meta-fields">
+              ${dirPillHtml}
+              ${typePillHtml}
+              ${crcPill}
+              ${lenPillHtml}
+              ${txPillHtml}
+              ${rxPillHtml}
+              ${tokenPillHtml}
+              ${streamIdPillHtml}
+              ${timePillHtml}
+            </div>
             <span class="actions">
-              <button class="iconbtn" data-act="copy-json">Copy JSON</button>
-              <button class="iconbtn" data-act="copy-hex">Copy Hex</button>
-              <button class="iconbtn" data-act="show-fdo">Show FDO</button>
+              <button class="iconbtn" data-act="copy-json">JSON</button>
+              <button class="iconbtn" data-act="copy-hex">Hex</button>
+              <button class="iconbtn" data-act="show-fdo">FDO</button>
             </span>
           </div>
-          
-          
-          ${obj.fullHex ? `<div class="hex"></div>` : ''}
-          <div class="popover"><div style="font-weight:600;margin-bottom:6px">${obj.token}</div><pre></pre></div>
+          ${obj.fullHex ? `<div class="hex" data-full-hex="${obj.fullHex}"></div>` : ''}
         `;
-        // Set hex as plain text to avoid HTML injection breaking layout
+
+        // Render hex with individual byte spans for highlighting
         if (obj.fullHex) {
           const hexEl = el.querySelector('.hex');
-          if (hexEl) hexEl.textContent = formatHex(obj.fullHex);
+          if (hexEl) {
+            hexEl.innerHTML = formatHexWithSpans(obj.fullHex);
+          }
+        }
+
+        // Add hover handlers for byte highlighting
+        el.querySelectorAll('.pill-hoverable').forEach(pill => {
+          const start = parseInt(pill.dataset.byteStart, 10);
+          const end = parseInt(pill.dataset.byteEnd, 10);
+          if (!isNaN(start) && !isNaN(end)) {
+            pill.addEventListener('mouseenter', () => highlightBytes(el, start, end));
+            pill.addEventListener('mouseleave', () => clearByteHighlights(el));
+          }
+        });
+        // Highlight payload when hovering FDO button
+        const fdoBtn = el.querySelector('[data-act="show-fdo"]');
+        if (fdoBtn) {
+          const payloadLen = (hasLenValue && lenNumber > 3) ? Math.max(0, lenNumber - 3) : 0;
+          const fdoStart = 12; // skip token (2) + streamId (2) after header
+          const fdoEnd = payloadLen > 4 ? fdoStart + (payloadLen - 4) - 1 : fdoStart - 1;
+          if (fdoEnd >= fdoStart) {
+            fdoBtn.addEventListener('mouseenter', () => highlightBytes(el, fdoStart, fdoEnd));
+            fdoBtn.addEventListener('mouseleave', () => clearByteHighlights(el));
+          }
         }
         el.addEventListener('click', async (e) => {
           const target = e.target.closest('[data-act]');
@@ -1917,10 +2093,10 @@
           if (act === 'copy-json') {
             const pretty = JSON.stringify(obj, null, 2);
             await navigator.clipboard.writeText(pretty);
-            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy JSON', 800); }
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'JSON', 800); }
           } else if (act === 'copy-hex') {
             await navigator.clipboard.writeText(obj.fullHex || '');
-            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Copy Hex', 800); }
+            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Hex', 800); }
           } else if (act === 'show-fdo') {
             // If already decompiled, show it immediately
             if (obj.fdoSource) {
@@ -1944,7 +2120,7 @@
               .then(res => res.json())
               .then(result => {
                 target.disabled = false;
-                target.textContent = 'Show FDO';
+                target.textContent = 'FDO';
 
                 if (result.success && result.fdoSource) {
                   // Unescape newlines and other escape sequences from JSON
@@ -1962,7 +2138,7 @@
               })
               .catch(err => {
                 target.disabled = false;
-                target.textContent = 'Show FDO';
+                target.textContent = 'FDO';
                 toast('Failed to decompile: ' + err.message, 'err');
               });
             }
@@ -1995,6 +2171,9 @@
         dz.querySelector('.dz-title').textContent = 'Drop a PCAP or JSONL file here';
         // Reset selected file
         selectedFile = null;
+        // Reset first frame timestamps for relative time
+        firstPcapFrameTs = null;
+        firstProxyFrameTs = null;
       });
 
 
@@ -2005,15 +2184,9 @@
           const status = await response.json();
 
           const statusDot = document.getElementById('proxy-status-dot');
-          const statusText = document.getElementById('proxy-status-text');
-          const startBtn = document.getElementById('px-start');
-          const stopBtn = document.getElementById('px-stop');
 
           if (status.running) {
-            statusDot.classList.add('running');
-            statusText.textContent = 'Proxy Status: Running (Port 5190)';
-            startBtn.style.display = 'none';
-            stopBtn.style.display = 'inline-block';
+            if (statusDot) statusDot.classList.add('running');
 
             // Update global proxy state
             proxyRunning = true;
@@ -2022,10 +2195,7 @@
             await loadConnections();
             startLive();
           } else {
-            statusDot.classList.remove('running');
-            statusText.textContent = 'Proxy Status: Stopped';
-            startBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
+            if (statusDot) statusDot.classList.remove('running');
 
             // Update global proxy state
             proxyRunning = false;
@@ -2055,6 +2225,7 @@
             sessionStartTime = Date.now();
             lastSequenceNumber = null;
             sequenceGaps = 0;
+            firstProxyFrameTs = null;
           } else {
             // Preserve existing session start time and metadata when reconnecting
           }
@@ -2139,6 +2310,89 @@
         updateSessionMetadata();
       }
 
+      // Stream Rail functions - visual connector for stream selection
+      function getActiveTimeline() {
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab && activeTab.dataset.tab === 'proxy') {
+          return document.getElementById('timeline-proxy');
+        }
+        return document.getElementById('timeline-pcap');
+      }
+
+      function createStreamRail(streamId, matchingPills) {
+        removeStreamRail();
+
+        const timeline = getActiveTimeline();
+        if (!timeline || matchingPills.length === 0) return;
+
+        timeline.classList.add('has-stream-selection');
+
+        // Create rail container
+        const rail = document.createElement('div');
+        rail.className = 'stream-rail';
+        rail.id = 'stream-rail';
+
+        // Get frame positions relative to timeline
+        const timelineRect = timeline.getBoundingClientRect();
+        const positions = [];
+
+        matchingPills.forEach(pill => {
+          const frame = pill.closest('.frame');
+          if (frame) {
+            const frameRect = frame.getBoundingClientRect();
+            const relativeTop = frameRect.top - timelineRect.top + timeline.scrollTop;
+            positions.push(relativeTop + frameRect.height / 2);
+          }
+        });
+
+        if (positions.length > 0) {
+          // Vertical line spanning from first to last frame
+          const minY = Math.min(...positions);
+          const maxY = Math.max(...positions);
+          const line = document.createElement('div');
+          line.className = 'stream-rail-line';
+          line.style.top = minY + 'px';
+          line.style.height = (maxY - minY) + 'px';
+          rail.appendChild(line);
+
+          // Connection nodes at each matching frame
+          positions.forEach(y => {
+            const node = document.createElement('div');
+            node.className = 'stream-rail-node';
+            node.style.top = y + 'px';
+            rail.appendChild(node);
+          });
+        }
+
+        // Fixed action button (appended to body so it's not clipped)
+        const btn = document.createElement('button');
+        btn.className = 'stream-rail-action';
+        btn.id = 'stream-rail-action';
+        btn.title = 'Decompile selected stream';
+        btn.innerHTML = `
+          <span class="stream-rail-action-icon">&#x2699;</span>
+          <span class="stream-rail-action-count">${matchingPills.length}</span>
+        `;
+        btn.addEventListener('click', handleDecompileStream);
+        document.body.appendChild(btn);
+
+        // Ensure timeline has relative positioning for absolute children
+        timeline.style.position = 'relative';
+        timeline.insertBefore(rail, timeline.firstChild);
+      }
+
+      function removeStreamRail() {
+        const rail = document.getElementById('stream-rail');
+        if (rail) rail.remove();
+
+        const btn = document.getElementById('stream-rail-action');
+        if (btn) btn.remove();
+
+        document.querySelectorAll('.timeline').forEach(t => {
+          t.classList.remove('has-stream-selection');
+        });
+      }
+
       // StreamId filtering functions
       function highlightStream(streamId) {
         // Clear any existing highlights and hover previews
@@ -2154,7 +2408,7 @@
 
         if (matchCount === 0) return;
 
-        // Highlight pills only (no frame highlighting)
+        // Highlight pills and their parent frames
         allPills.forEach((pill, index) => {
           // First pill gets selected state, others get highlighted state
           if (index === 0) {
@@ -2162,15 +2416,23 @@
           } else {
             pill.classList.add('stream-highlighted');
           }
+          // Also highlight the parent frame row
+          const frameEl = pill.closest('.frame');
+          if (frameEl) {
+            frameEl.classList.add('frame-stream-selected');
+          }
         });
 
-        // Show and update the "Decompile Stream" button
-        const decompileStreamBtn = document.getElementById('decompile-stream');
+        // Show and update the "Decompile Stream" button in header
+        const decompileStreamBtn = getDecompileStreamButton();
         if (decompileStreamBtn) {
           const plural = matchCount !== 1 ? 's' : '';
           decompileStreamBtn.textContent = `Decompile Stream (${matchCount} frame${plural})`;
           decompileStreamBtn.style.display = '';
         }
+
+        // Create the stream rail visual connector
+        createStreamRail(streamId, Array.from(allPills));
 
         // Show toast notification
         const plural = matchCount !== 1 ? 's' : '';
@@ -2180,15 +2442,21 @@
       function clearStreamHighlight() {
         if (!activeStreamId) return;
 
-        // Remove all highlight classes from pills
+        // Remove all highlight classes from pills and frames
         document.querySelectorAll('.stream-selected, .stream-highlighted')
           .forEach(el => el.classList.remove('stream-selected', 'stream-highlighted'));
+        document.querySelectorAll('.frame-stream-selected')
+          .forEach(el => el.classList.remove('frame-stream-selected'));
+        clearHoverPreview();
 
-        // Hide the "Decompile Stream" button
-        const decompileStreamBtn = document.getElementById('decompile-stream');
-        if (decompileStreamBtn) {
-          decompileStreamBtn.style.display = 'none';
-        }
+        // Hide both "Decompile Stream" buttons in headers
+        const proxyBtn = document.getElementById('decompile-stream-proxy');
+        const pcapBtn = document.getElementById('decompile-stream-pcap');
+        if (proxyBtn) proxyBtn.style.display = 'none';
+        if (pcapBtn) pcapBtn.style.display = 'none';
+
+        // Remove the stream rail
+        removeStreamRail();
 
         // Reset state
         activeStreamId = null;
@@ -2221,7 +2489,7 @@
       function initStreamIdFiltering() {
         // Click handler for streamId pills
         document.addEventListener('click', (e) => {
-          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+          const pill = e.target.closest('.pill-sid[data-stream-id]');
 
           if (!pill) {
             // Check if clicking outside - clear selection
@@ -2244,7 +2512,7 @@
 
         // Hover preview handler
         document.addEventListener('mouseover', (e) => {
-          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+          const pill = e.target.closest('.pill-sid[data-stream-id]');
           if (!pill) return;
 
           const streamId = pill.dataset.streamId;
@@ -2256,7 +2524,7 @@
 
         // Clear hover preview when mouse leaves
         document.addEventListener('mouseout', (e) => {
-          const pill = e.target.closest('.stream-id-pill[data-stream-id]');
+          const pill = e.target.closest('.pill-sid[data-stream-id]');
           if (!pill) return;
 
           clearHoverPreview();
@@ -2271,7 +2539,7 @@
 
           // Handle Enter/Space on focused pill
           if ((e.key === 'Enter' || e.key === ' ') &&
-              e.target.classList.contains('stream-id-pill')) {
+              e.target.classList.contains('pill-sid')) {
             e.target.click();
             e.preventDefault();
           }
@@ -2279,7 +2547,7 @@
       }
 
       // Decompile stream button handler
-      document.getElementById('decompile-stream').addEventListener('click', async () => {
+      async function handleDecompileStream() {
         if (!activeStreamId) {
           toast('No stream selected', 'err');
           return;
@@ -2288,7 +2556,7 @@
         // Store streamId locally to preserve it during async operation
         const streamId = activeStreamId;
 
-        const btn = document.getElementById('decompile-stream');
+        const btn = getDecompileStreamButton();
         const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Decompiling...';
@@ -2300,7 +2568,7 @@
 
           for (const frameData of frames) {
             const obj = frameData.obj;
-            const frameStreamId = extractStreamIdFromHex(obj);
+            const frameStreamId = extractStreamIdFromHex(obj, 'dec');
 
             // Check streamId match
             if (frameStreamId !== streamId || !obj.fullHex) {
@@ -2366,7 +2634,11 @@
           btn.textContent = originalText;
           toast('Failed to decompile stream: ' + err.message, 'err');
         }
-      });
+      }
+
+      // Attach handler to both decompile stream buttons in headers
+      document.getElementById('decompile-stream-proxy').addEventListener('click', handleDecompileStream);
+      document.getElementById('decompile-stream-pcap').addEventListener('click', handleDecompileStream);
 
       exportJsonlBtn.addEventListener('click', async () => {
         try {
@@ -2496,6 +2768,7 @@
         // reset UI
         document.getElementById('timeline-pcap').innerHTML = '';
         activeFrames().length = 0;
+        firstPcapFrameTs = null;
         // create temp download link anchor lazily
         if (!downloadLink) { downloadLink = document.createElement('a'); downloadLink.style.display='none'; document.body.appendChild(downloadLink); }
         downloadLink.removeAttribute('href');
@@ -2647,22 +2920,12 @@
               if (status.running !== proxyRunning) {
                 proxyRunning = status.running;
 
-                // Update proxy controls UI
                 const statusDot = document.getElementById('proxy-status-dot');
-                const statusText = document.getElementById('proxy-status-text');
-                const startBtn = document.getElementById('px-start');
-                const stopBtn = document.getElementById('px-stop');
 
                 if (status.running) {
-                  statusDot.classList.add('running');
-                  statusText.textContent = 'Proxy Status: Running (Port 5190)';
-                  startBtn.style.display = 'none';
-                  stopBtn.style.display = 'inline-block';
+                  if (statusDot) statusDot.classList.add('running');
                 } else {
-                  statusDot.classList.remove('running');
-                  statusText.textContent = 'Proxy Status: Stopped';
-                  startBtn.style.display = 'inline-block';
-                  stopBtn.style.display = 'none';
+                  if (statusDot) statusDot.classList.remove('running');
 
                   // If proxy stopped unexpectedly, update localStorage
                   localStorage.setItem('proxyRunning', 'false');
@@ -2680,14 +2943,8 @@
 
                 // Update UI to show stopped state
                 const statusDot = document.getElementById('proxy-status-dot');
-                const statusText = document.getElementById('proxy-status-text');
-                const startBtn = document.getElementById('px-start');
-                const stopBtn = document.getElementById('px-stop');
 
-                statusDot.classList.remove('running');
-                statusText.textContent = 'Proxy Status: Stopped';
-                startBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
+                if (statusDot) statusDot.classList.remove('running');
               }
             });
 
@@ -2698,55 +2955,6 @@
           }
         }
       }, 5000); // Check every 5 seconds
-
-      // Proxy button event listeners (added at end to ensure DOM elements exist)
-      document.getElementById('px-start').addEventListener('click', async () => {
-        const startBtn = document.getElementById('px-start');
-        const stopBtn = document.getElementById('px-stop');
-
-        startBtn.disabled = true;
-        startBtn.textContent = 'Starting...';
-
-        try {
-          const response = await fetch('/api/proxy/start', { method: 'POST' });
-          if (response.ok) {
-            toast('Proxy started successfully', 'ok');
-            updateProxyStatus();
-          } else {
-            throw new Error('Failed to start proxy');
-          }
-        } catch (err) {
-          console.error('Error starting proxy:', err);
-          toast('Failed to start proxy: ' + err.message, 'err');
-        } finally {
-          startBtn.disabled = false;
-          startBtn.textContent = 'Start Proxy';
-        }
-      });
-
-      document.getElementById('px-stop').addEventListener('click', async () => {
-        const startBtn = document.getElementById('px-start');
-        const stopBtn = document.getElementById('px-stop');
-
-        stopBtn.disabled = true;
-        stopBtn.textContent = 'Stopping...';
-
-        try {
-          const response = await fetch('/api/proxy/stop', { method: 'POST' });
-          if (response.ok) {
-            toast('Proxy stopped successfully', 'ok');
-            updateProxyStatus();
-          } else {
-            throw new Error('Failed to stop proxy');
-          }
-        } catch (err) {
-          console.error('Error stopping proxy:', err);
-          toast('Failed to stop proxy: ' + err.message, 'err');
-        } finally {
-          stopBtn.disabled = false;
-          stopBtn.textContent = 'Stop Proxy';
-        }
-      });
 
     </script>
   </body>

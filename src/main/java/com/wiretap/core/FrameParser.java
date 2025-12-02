@@ -20,7 +20,71 @@ public final class FrameParser {
     private static final int AOL_MAGIC = 0x5A;
     private static final DecimalFormat TS_FMT = new DecimalFormat("0.000000");
 
+    // P3 packet type constants
+    private static final int P3_DATA   = 0x20;
+    private static final int P3_INIT   = 0x23;
+    private static final int P3_ACK    = 0x24;
+    private static final int P3_NAK    = 0x25;
+    private static final int P3_HBEAT  = 0x26;
+    private static final int P3_RESET  = 0x28;
+    private static final int P3_RAK    = 0x29;
+    private static final int P3_SETUP  = 0x2A;
+    private static final int P3_ACKNOW = 0x2B;
+
+    // NAK error code constants (data[0] in NAK packets)
+    private static final int NAK_CRC_ERROR         = 0x01;
+    private static final int NAK_SEQUENCE_ERROR    = 0x02;
+    private static final int NAK_LENGTH_ERROR      = 0x03;
+    private static final int NAK_PACKET_BUILD_ERROR = 0x04;
+
     private FrameParser() {} // Utility class
+
+    /**
+     * Get human-readable P3 packet type name from type byte.
+     * Masks off the direction bit (0x80) to get base type.
+     */
+    private static String getP3TypeName(int type) {
+        int baseType = type & 0x7F;  // Mask off direction bit
+        switch (baseType) {
+            case P3_DATA:   return "DATA";
+            case P3_INIT:   return "INIT";
+            case P3_ACK:    return "ACK";
+            case P3_NAK:    return "NAK";
+            case P3_HBEAT:  return "HBEAT";
+            case P3_RESET:  return "RESET";
+            case P3_RAK:    return "RAK";
+            case P3_SETUP:  return "SETUP";
+            case P3_ACKNOW: return "ACKNOW";
+            default:        return null;  // Unknown type
+        }
+    }
+
+    /**
+     * Check if this is a DATA packet (has token/streamId payload).
+     */
+    private static boolean isDataPacket(int type) {
+        return (type & 0x7F) == P3_DATA;
+    }
+
+    /**
+     * Check if this is a NAK packet.
+     */
+    private static boolean isNakPacket(int type) {
+        return (type & 0x7F) == P3_NAK;
+    }
+
+    /**
+     * Get human-readable NAK error reason from error code byte.
+     */
+    private static String getNakReason(int errorCode) {
+        switch (errorCode) {
+            case NAK_CRC_ERROR:          return "CRC_ERROR";
+            case NAK_SEQUENCE_ERROR:     return "SEQUENCE_ERROR";
+            case NAK_LENGTH_ERROR:       return "LENGTH_ERROR";
+            case NAK_PACKET_BUILD_ERROR: return "PACKET_BUILD_ERROR";
+            default:                     return "UNKNOWN_0x" + Integer.toHexString(errorCode);
+        }
+    }
 
     /**
      * Parse AOL frame with full analysis (for PCAP extractors).
@@ -40,12 +104,15 @@ public final class FrameParser {
 
         // Extract header fields
         s.len = length >= 6 ? (((f[off+3] & 0xFF) << 8) | (f[off+4] & 0xFF)) : 0;
-        s.type = length > 7 ? HexUtil.hexByteUpper(f[off+7] & 0xFF) : "n/a";
-        s.tx = length > 5 ? HexUtil.hexByteUpper(f[off+5] & 0xFF) : "n/a";
-        s.rx = length > 6 ? HexUtil.hexByteUpper(f[off+6] & 0xFF) : "n/a";
+        int typeByte = length > 7 ? (f[off+7] & 0xFF) : 0;
+        s.type = length > 7 ? HexUtil.hexByteUpper(typeByte) : "n/a";
+        s.typeName = length > 7 ? getP3TypeName(typeByte) : null;
+        s.tx = length > 5 ? String.valueOf(f[off+5] & 0xFF) : "n/a";
+        s.rx = length > 6 ? String.valueOf(f[off+6] & 0xFF) : "n/a";
 
-        // Extract token and streamId
-        if (length >= 10 && (f[off] & 0xFF) == AOL_MAGIC) {
+        // Extract token and streamId (only for DATA packets - control packets have no payload)
+        boolean isData = length > 7 && isDataPacket(typeByte);
+        if (isData && length >= 10 && (f[off] & 0xFF) == AOL_MAGIC) {
             char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
             if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) {
                 s.token = "" + c1 + c2;
@@ -57,8 +124,13 @@ public final class FrameParser {
             if (length >= 12) {
                 s.streamId = "0x" + HexUtil.hexLower(f[off+10] & 0xFF) + HexUtil.hexLower(f[off+11] & 0xFF);
             }
-        } else if (length == 9 && (f[off] & 0xFF) == AOL_MAGIC) {
-            s.token = "9B";
+        }
+        // Note: Control packets (ACK, NAK, HBEAT, etc.) have no token/streamId - leave them null
+
+        // Extract NAK error code (data[0] in NAK packets)
+        if (isNakPacket(typeByte) && length > 8) {
+            int nakErrorCode = f[off+8] & 0xFF;
+            s.nakReason = getNakReason(nakErrorCode);
         }
 
         // CRC validation
@@ -115,12 +187,15 @@ public final class FrameParser {
 
         // Extract header fields
         s.len = length >= 6 ? (((f[off+3] & 0xFF) << 8) | (f[off+4] & 0xFF)) : 0;
-        s.type = length > 7 ? String.format("0x%02X", f[off+7] & 0xFF) : "n/a";
-        s.tx = length > 5 ? String.format("0x%02X", f[off+5] & 0xFF) : "n/a";
-        s.rx = length > 6 ? String.format("0x%02X", f[off+6] & 0xFF) : "n/a";
+        int typeByte = length > 7 ? (f[off+7] & 0xFF) : 0;
+        s.type = length > 7 ? String.format("0x%02X", typeByte) : "n/a";
+        s.typeName = length > 7 ? getP3TypeName(typeByte) : null;
+        s.tx = length > 5 ? String.valueOf(f[off+5] & 0xFF) : "n/a";
+        s.rx = length > 6 ? String.valueOf(f[off+6] & 0xFF) : "n/a";
 
-        // Extract token and streamId
-        if (length >= 10 && (f[off] & 0xFF) == AOL_MAGIC) {
+        // Extract token and streamId (only for DATA packets - control packets have no payload)
+        boolean isData = length > 7 && isDataPacket(typeByte);
+        if (isData && length >= 10 && (f[off] & 0xFF) == AOL_MAGIC) {
             char c1 = (char)(f[off+8] & 0xFF), c2 = (char)(f[off+9] & 0xFF);
             if (c1 >= 32 && c1 < 127 && c2 >= 32 && c2 < 127) {
                 s.token = "" + c1 + c2;
@@ -132,8 +207,13 @@ public final class FrameParser {
             if (length >= 12) {
                 s.streamId = String.format("0x%02x%02x", f[off+10] & 0xFF, f[off+11] & 0xFF);
             }
-        } else if (length == 9 && (f[off] & 0xFF) == AOL_MAGIC) {
-            s.token = "9B";
+        }
+        // Note: Control packets (ACK, NAK, HBEAT, etc.) have no token/streamId - leave them null
+
+        // Extract NAK error code (data[0] in NAK packets)
+        if (isNakPacket(typeByte) && length > 8) {
+            int nakErrorCode = f[off+8] & 0xFF;
+            s.nakReason = getNakReason(nakErrorCode);
         }
 
         s.fullHex = HexUtil.bytesToHexLower(f, off, length);
