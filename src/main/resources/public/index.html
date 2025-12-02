@@ -902,6 +902,21 @@
           width: 240px;
           min-width: 240px;
         }
+        /* Auto-collapse sidebar on narrow screens */
+        .connections-sidebar.auto-collapsed {
+          width: 48px;
+          min-width: 48px;
+        }
+        .connections-sidebar.auto-collapsed .sidebar-content,
+        .connections-sidebar.auto-collapsed .sidebar-header h3 {
+          display: none;
+        }
+        .connections-sidebar.auto-collapsed .sidebar-header {
+          justify-content: center;
+        }
+        .connections-sidebar.auto-collapsed .toggle-icon {
+          transform: rotate(180deg);
+        }
       }
 
       @media (max-width: 768px) {
@@ -1743,6 +1758,8 @@
 
       function toggleSidebar() {
         const sidebar = document.getElementById('connections-sidebar');
+        // Remove auto-collapsed if user manually toggles
+        sidebar.classList.remove('auto-collapsed');
         sidebar.classList.toggle('collapsed');
 
         // Show/hide search when expanding
@@ -1753,6 +1770,41 @@
           searchContainer.style.display = 'block';
         }
       }
+
+      // Responsive sidebar: auto-collapse when window gets narrow
+      let lastWindowWidth = window.innerWidth;
+      const SIDEBAR_BREAKPOINT = 900; // Collapse sidebar below this width
+
+      function handleResponsiveSidebar() {
+        const sidebar = document.getElementById('connections-sidebar');
+        if (!sidebar) return;
+
+        const currentWidth = window.innerWidth;
+        const wasWide = lastWindowWidth >= SIDEBAR_BREAKPOINT;
+        const isNarrow = currentWidth < SIDEBAR_BREAKPOINT;
+
+        // Auto-collapse when shrinking below breakpoint
+        if (wasWide && isNarrow && !sidebar.classList.contains('collapsed')) {
+          sidebar.classList.add('auto-collapsed');
+          toast('Sidebar collapsed', 'ok');
+        }
+        // Auto-expand when growing above breakpoint (only if auto-collapsed)
+        else if (!wasWide && !isNarrow && sidebar.classList.contains('auto-collapsed')) {
+          sidebar.classList.remove('auto-collapsed');
+        }
+
+        lastWindowWidth = currentWidth;
+      }
+
+      // Debounced resize handler
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleResponsiveSidebar, 100);
+      });
+
+      // Initial check
+      handleResponsiveSidebar();
 
       function handleConnectionSearch(e) {
         const query = e.target.value.toLowerCase();
@@ -1968,8 +2020,10 @@
         // P3 packet type handling
         const baseTypeName = obj.typeName || obj.type || '?';
         const typeClass = obj.typeName ? `type-${obj.typeName.toLowerCase()}` : 'type-unknown';
-        const isDataPacket = obj.typeName === 'DATA';
-        const isNakPacket = obj.typeName === 'NAK';
+        // Determine if DATA packet: either typeName === 'DATA' or type byte is 0x20/0xA0
+        const typeHex = (obj.type || '').toLowerCase();
+        const isDataPacket = obj.typeName === 'DATA' || typeHex === '0x20' || typeHex === '0xa0' || typeHex === '20' || typeHex === 'a0';
+        const isNakPacket = obj.typeName === 'NAK' || typeHex === '0x25' || typeHex === '0xa5' || typeHex === '25' || typeHex === 'a5';
 
         let typeDisplay = baseTypeName;
         if (isNakPacket && obj.nakReason) {
@@ -1999,13 +2053,8 @@
         let streamIdPill = '';
         const streamIdHex = isDataPacket ? extractStreamIdFromHex(obj, 'hex') : null;
         const streamIdDecimal = isDataPacket ? extractStreamIdFromHex(obj, 'dec') : null;
-        if (streamIdHex && streamIdDecimal !== null) {
-          streamIdPill = `<span class="pill pill-sid pill-hoverable"
-                    data-stream-id="${streamIdDecimal}"
-                    data-byte-start="10"
-                    data-byte-end="11"
-                    role="button"
-                    tabindex="0"><span class="pill-label">sid</span>: <span class="pill-value">${streamIdDecimal}</span></span>`;
+        if (streamIdHex !== null && streamIdDecimal !== null) {
+          streamIdPill = `<span class="pill pill-sid pill-hoverable" data-stream-id="${streamIdDecimal}" data-byte-start="10" data-byte-end="11" role="button" tabindex="0"><span class="pill-label">sid</span>: <span class="pill-value">${streamIdDecimal}</span></span>`;
         }
 
         // Relative timestamp from frame's actual timestamp
@@ -2489,7 +2538,7 @@
       function initStreamIdFiltering() {
         // Click handler for streamId pills
         document.addEventListener('click', (e) => {
-          const pill = e.target.closest('.pill-sid[data-stream-id]');
+          const pill = e.target.closest('.pill-sid');
 
           if (!pill) {
             // Check if clicking outside - clear selection
@@ -2500,7 +2549,7 @@
           }
 
           const streamId = pill.dataset.streamId;
-          if (!streamId || streamId === 'null') return;
+          if (!streamId || streamId === 'null' || streamId === 'undefined') return;
 
           // Toggle selection
           if (activeStreamId === streamId) {
@@ -2512,11 +2561,11 @@
 
         // Hover preview handler
         document.addEventListener('mouseover', (e) => {
-          const pill = e.target.closest('.pill-sid[data-stream-id]');
+          const pill = e.target.closest('.pill-sid');
           if (!pill) return;
 
           const streamId = pill.dataset.streamId;
-          if (!streamId || streamId === 'null') return;
+          if (!streamId || streamId === 'null' || streamId === 'undefined') return;
 
           // Show hover preview for this streamId
           showHoverPreview(streamId);
@@ -2524,7 +2573,7 @@
 
         // Clear hover preview when mouse leaves
         document.addEventListener('mouseout', (e) => {
-          const pill = e.target.closest('.pill-sid[data-stream-id]');
+          const pill = e.target.closest('.pill-sid');
           if (!pill) return;
 
           clearHoverPreview();
@@ -2841,21 +2890,18 @@
           // Show target tab panel
           document.getElementById('tab-' + tabName).classList.add('active');
 
-          // Toggle visible timeline and proxy controls
+          // Toggle visible timeline
           const timelineProxy = document.getElementById('timeline-proxy');
           const timelinePcap = document.getElementById('timeline-pcap');
-          const proxyControls = document.getElementById('proxy-controls');
 
           if (tabName === 'proxy') {
             timelineProxy.style.display = '';
             timelinePcap.style.display = 'none';
-            proxyControls.style.display = 'block';
             // Update proxy status when switching to proxy tab
             updateProxyStatus();
           } else if (tabName === 'pcap') {
             timelineProxy.style.display = 'none';
             timelinePcap.style.display = '';
-            proxyControls.style.display = 'none';
           }
 
           // Update URL hash without triggering page reload
