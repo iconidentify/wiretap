@@ -78,6 +78,7 @@ public class ServerGUI extends Application {
     private Button proxyToggleButton;
     private Button liveProxyButton;
     private Button pcapAnalyzerButton;
+    private long lastBrowserOpenTime = 0;  // Debounce browser opens (prevent spam)
 
     // Status display components for dynamic updates
     private Label framesValueLabel;
@@ -436,6 +437,13 @@ public class ServerGUI extends Application {
 
     private void openWebInterface(String tabKey) {
         try {
+            // Debounce: prevent rapid repeated opens (2 second cooldown)
+            long now = System.currentTimeMillis();
+            if (now - lastBrowserOpenTime < 2000) {
+                return;
+            }
+            lastBrowserOpenTime = now;
+
             // Use JavaFX HostServices instead of AWT Desktop for native image compatibility
             int actualHttpPort = httpApp != null ? httpApp.getHttpPort() : httpPort;
             String url = "http://localhost:" + actualHttpPort + "?gui=true";

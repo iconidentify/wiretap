@@ -96,6 +96,24 @@
       .hex-byte { transition: background 0.08s ease, color 0.08s ease; }
       .hex-byte-hover { background: rgba(59, 130, 246, 0.55); color: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(59,130,246,0.9); }
       .hex-byte-selected { background: rgba(245, 158, 11, 0.45); color: #111; border-radius: 2px; }
+      /* Phase 2: Collapsed hex preview styling */
+      .hex-collapsed { opacity: 0.85; cursor: pointer; }
+      .hex-collapsed:hover { opacity: 1; }
+      /* Hex hidden state - clickable meta row to show (subtle hover only) */
+      .frame:has(.hex-hidden) .meta { cursor: pointer; }
+      .frame:has(.hex-hidden) .meta:hover { background: var(--surface-hover); }
+      /* Fixed-width pills for consistent alignment across frames */
+      .pill-dir { min-width: 28px; text-align: center; }
+      .pill-type { min-width: 50px; text-align: center; }
+      .pill-len { min-width: 58px; }
+      .pill-txrx { min-width: 40px; }
+      .pill-token { min-width: 58px; }
+      .pill-sid { min-width: 65px; }
+      .pill-ts { min-width: 70px; }
+      .pill-placeholder { opacity: 0.3; }
+      /* Phase 3: Virtual scroll containers */
+      .virtual-spacer-top, .virtual-spacer-bottom { flex-shrink: 0; }
+      .virtual-content { display: flex; flex-direction: column; gap: 10px; }
       /* Hoverable pill that highlights hex */
       .pill-hoverable { cursor: pointer; }
       .pill-hoverable:hover { background: var(--surface); border-color: var(--primary); }
@@ -1087,6 +1105,7 @@
                   </div>
                   <div class="actions">
                     <button id="decompile-stream-proxy" class="iconbtn" style="display: none;">Decompile Stream</button>
+                    <button id="toggle-hex-proxy" class="iconbtn">Show Hex</button>
                     <button id="clear" class="iconbtn">Clear</button>
                     <button id="exportJsonl" class="iconbtn">Export JSONL</button>
                   </div>
@@ -1111,6 +1130,7 @@
               <div>Latest Frames (Newest First) <span id="file-type-indicator" style="font-size: 12px; opacity: 0.7; font-weight: normal;"></span></div>
               <div class="actions">
                 <button id="decompile-stream-pcap" class="iconbtn" style="display: none;">Decompile Stream</button>
+                <button id="toggle-hex-pcap" class="iconbtn">Show Hex</button>
                 <button id="clear" class="iconbtn">Clear</button>
                 <button id="exportJsonl" class="iconbtn">Export JSONL</button>
               </div>
@@ -1181,9 +1201,8 @@
                 for (const line of lines) {
                   try {
                     const obj = JSON.parse(line);
-                    const frameData = { obj, raw: line, isLive: false };
-                    activeFrames().push(frameData);
-                    renderFrame(obj, line, document.getElementById('timeline-proxy'));
+                    // Use virtual scroll for proxy frames
+                    addFrameToVirtualScroll(obj, line, false);
                   } catch (e) {
                     console.warn('Failed to parse session frame:', e);
                   }
@@ -1305,6 +1324,7 @@
 
       let selectedFile = null;
       let proxyRunning = false;
+      let showHexGlobally = false;  // Global hex display toggle (default OFF)
 
       // Session metadata tracking
       let sessionStartTime = null;
@@ -1317,13 +1337,338 @@
       let firstProxyFrameTs = null;
       let firstPcapFrameTs = null;
 
-      const framesPcap = []; // {obj, raw}
-      const framesProxy = []; // {obj, raw}
+      const framesPcap = []; // {obj, raw, index}
+      const framesProxy = []; // {obj, raw, index}
       function isProxyActive() {
         const t = document.querySelector('.tab.active');
         return t && t.dataset.tab === 'proxy' && proxyRunning;
       }
       function activeFrames() { return isProxyActive() ? framesProxy : framesPcap; }
+
+      // Get frame object by index from the appropriate array
+      function getFrameByIndex(frameIndex, isPcapTab) {
+        const frames = isPcapTab ? framesPcap : framesProxy;
+        return frames[frameIndex] || null;
+      }
+
+      // Determine which tab a frame element belongs to
+      function isFrameInPcapTab(frameEl) {
+        return frameEl.closest('#timeline-pcap') !== null;
+      }
+
+      // ===== PHASE 3: VIRTUAL SCROLLING =====
+      // Only render visible frames + buffer for massive performance improvement
+      const VIRTUAL_CONFIG = {
+        bufferSize: 15,           // Frames to render above/below viewport
+        estimatedFrameHeight: 85, // Collapsed frame height in pixels
+        scrollThrottleMs: 16      // ~60fps
+      };
+
+      // Virtual scroll state for each timeline
+      const virtualState = {
+        pcap: {
+          renderedRange: { start: 0, end: 0 },
+          scrollRAF: null,
+          container: null,
+          spacerTop: null,
+          spacerBottom: null,
+          content: null
+        },
+        proxy: {
+          renderedRange: { start: 0, end: 0 },
+          scrollRAF: null,
+          container: null,
+          spacerTop: null,
+          spacerBottom: null,
+          content: null
+        }
+      };
+
+      // Get virtual state for a timeline
+      function getVirtualState(isPcap) {
+        return isPcap ? virtualState.pcap : virtualState.proxy;
+      }
+
+      // Initialize virtual scroll container for a timeline
+      function initVirtualContainer(timelineId, isPcap) {
+        const timeline = document.getElementById(timelineId);
+        if (!timeline) return;
+
+        // Create virtual scroll structure
+        timeline.innerHTML = `
+          <div class="virtual-spacer-top"></div>
+          <div class="virtual-content"></div>
+          <div class="virtual-spacer-bottom"></div>
+        `;
+
+        const state = getVirtualState(isPcap);
+        state.container = timeline;
+        state.spacerTop = timeline.querySelector('.virtual-spacer-top');
+        state.spacerBottom = timeline.querySelector('.virtual-spacer-bottom');
+        state.content = timeline.querySelector('.virtual-content');
+        state.renderedRange = { start: 0, end: 0 };
+
+        // Add scroll handler
+        timeline.addEventListener('scroll', () => onTimelineScroll(isPcap));
+      }
+
+      // Calculate which frames should be visible
+      function calculateVisibleRange(isPcap) {
+        const state = getVirtualState(isPcap);
+        const frames = isPcap ? framesPcap : framesProxy;
+        if (!state.container || frames.length === 0) {
+          return { start: 0, end: 0 };
+        }
+
+        const scrollTop = state.container.scrollTop;
+        const viewportHeight = state.container.clientHeight;
+        const buffer = VIRTUAL_CONFIG.bufferSize;
+        const avgHeight = VIRTUAL_CONFIG.estimatedFrameHeight;
+
+        // Frames are displayed newest-first (descending by index)
+        // Visual row 0 (top) shows highest index (newest)
+        // Visual row N (bottom) shows lowest index (oldest)
+        const visualRowStart = Math.floor(scrollTop / avgHeight);
+        const visualRowEnd = Math.ceil((scrollTop + viewportHeight) / avgHeight);
+
+        // Convert visual rows to frame indices (inverted mapping)
+        // frameIndex = (length - 1) - visualRow
+        let endIndex = (frames.length - 1) - visualRowStart + buffer + 1;
+        let startIndex = (frames.length - 1) - visualRowEnd - buffer;
+
+        startIndex = Math.max(0, startIndex);
+        endIndex = Math.min(frames.length, endIndex);
+
+        return { start: startIndex, end: endIndex };
+      }
+
+      // Render only visible frames
+      function renderVisibleFrames(isPcap, forceFullRender = false) {
+        const state = getVirtualState(isPcap);
+        const frames = isPcap ? framesPcap : framesProxy;
+        if (!state.content) return;
+
+        const newRange = calculateVisibleRange(isPcap);
+
+        // Skip if range hasn't changed significantly
+        if (!forceFullRender &&
+            newRange.start === state.renderedRange.start &&
+            newRange.end === state.renderedRange.end) {
+          return;
+        }
+
+        const avgHeight = VIRTUAL_CONFIG.estimatedFrameHeight;
+
+        // Calculate spacer heights (inverted since newest frames are at top)
+        // Top spacer: frames with higher indices than visible (newest, scrolled off top)
+        const topHeight = Math.max(0, (frames.length - newRange.end)) * avgHeight;
+        // Bottom spacer: frames with lower indices than visible (oldest, scrolled off bottom)
+        const bottomHeight = newRange.start * avgHeight;
+
+        state.spacerTop.style.height = topHeight + 'px';
+        state.spacerBottom.style.height = bottomHeight + 'px';
+
+        // Build set of currently rendered frame indices
+        const currentIndices = new Set();
+        state.content.querySelectorAll('.frame').forEach(el => {
+          currentIndices.add(parseInt(el.dataset.frameIndex, 10));
+        });
+
+        // Determine which frames need to be added/removed
+        const targetIndices = new Set();
+        for (let i = newRange.start; i < newRange.end; i++) {
+          targetIndices.add(i);
+        }
+
+        // Remove frames that are no longer in range
+        state.content.querySelectorAll('.frame').forEach(el => {
+          const idx = parseInt(el.dataset.frameIndex, 10);
+          if (!targetIndices.has(idx)) {
+            el.remove();
+          }
+        });
+
+        // Add frames that are newly in range
+        const fragment = document.createDocumentFragment();
+        const container = isPcap ? document.getElementById('timeline-pcap') : document.getElementById('timeline-proxy');
+
+        for (let i = newRange.start; i < newRange.end; i++) {
+          if (!currentIndices.has(i) && frames[i]) {
+            const frameData = frames[i];
+            const el = createFrameElement(frameData.obj, frameData.raw, container, i);
+            fragment.appendChild(el);
+          }
+        }
+
+        state.content.appendChild(fragment);
+
+        // Sort frame elements by index (newest first = highest index first)
+        sortFrameElements(state.content);
+
+        state.renderedRange = newRange;
+      }
+
+      // Sort frame elements by index (descending - newest first)
+      function sortFrameElements(container) {
+        const frames = Array.from(container.querySelectorAll('.frame'));
+        frames.sort((a, b) => {
+          return parseInt(b.dataset.frameIndex, 10) - parseInt(a.dataset.frameIndex, 10);
+        });
+        frames.forEach(el => container.appendChild(el));
+      }
+
+      // Throttled scroll handler
+      function onTimelineScroll(isPcap) {
+        const state = getVirtualState(isPcap);
+        if (state.scrollRAF) return;
+
+        state.scrollRAF = requestAnimationFrame(() => {
+          renderVisibleFrames(isPcap);
+          state.scrollRAF = null;
+        });
+      }
+
+      // Create frame element without appending (for virtual scrolling)
+      function createFrameElement(obj, raw, container, frameIndex) {
+        const el = document.createElement('div');
+        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s');
+        el.dataset.frameIndex = frameIndex;
+
+        if (obj.connectionId) {
+          el.dataset.connectionId = obj.connectionId;
+        }
+
+        // Build frame HTML (same as renderFrame but without prepending)
+        const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
+        const dirLabel = obj.dir === 'S->C' ? 'S-C' : 'C-S';
+
+        const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
+        const crcOk = hasCrcField ? !!obj.crcOk : true;
+        const crcPill = (!hasCrcField || crcOk) ? '' : `<span class="pill pill-crc">!</span>`;
+
+        const baseTypeName = obj.typeName || obj.type || '?';
+        const typeClass = obj.typeName ? `type-${obj.typeName.toLowerCase()}` : 'type-unknown';
+        const typeHex = (obj.type || '').toLowerCase();
+        const isDataPacket = obj.typeName === 'DATA' || typeHex === '0x20' || typeHex === '0xa0';
+        const isNakPacket = obj.typeName === 'NAK' || typeHex === '0x25' || typeHex === '0xa5';
+
+        // NAK: show just "NAK" in pill, full reason in tooltip
+        let typeDisplay = baseTypeName;
+        let typeTooltip = `Type: ${obj.type || '?'}`;
+        let typeStyle = '';
+        if (isNakPacket && obj.nakReason) {
+          typeDisplay = 'NAK';
+          typeTooltip = `NAK: ${obj.nakReason.replace(/_/g, ' ')}`;
+          typeStyle = ' style="cursor:help"';
+        }
+
+        // Token pill - show placeholder for non-DATA packets
+        let tokenPill = '';
+        if (isDataPacket && obj.token) {
+          tokenPill = `<span class="pill pill-token pill-hoverable" data-byte-start="8" data-byte-end="9"><span class="pill-label">tok</span>: <span class="pill-value">${obj.token}</span></span>`;
+        } else {
+          tokenPill = `<span class="pill pill-token pill-placeholder"><span class="pill-label">tok</span>: <span class="pill-value">--</span></span>`;
+        }
+
+        // StreamId pill - show placeholder for non-DATA packets
+        let streamIdPill = '';
+        const streamIdHex = isDataPacket ? extractStreamIdFromHex(obj, 'hex') : null;
+        const streamIdDecimal = isDataPacket ? extractStreamIdFromHex(obj, 'dec') : null;
+        if (streamIdHex !== null && streamIdDecimal !== null) {
+          streamIdPill = `<span class="pill pill-sid pill-hoverable" data-stream-id="${streamIdDecimal}" data-byte-start="10" data-byte-end="11" role="button" tabindex="0"><span class="pill-label">sid</span>: <span class="pill-value">${streamIdDecimal}</span></span>`;
+        } else {
+          streamIdPill = `<span class="pill pill-sid pill-placeholder"><span class="pill-label">sid</span>: <span class="pill-value">--</span></span>`;
+        }
+
+        const lenNumber = Number(obj.len);
+        const hasLenValue = Number.isFinite(lenNumber);
+        const lenStr = hasLenValue ? lenNumber.toString() : (obj.len || '?');
+
+        const isPcap = container && container.id === 'timeline-pcap';
+        const firstTs = isPcap ? firstPcapFrameTs : firstProxyFrameTs;
+        let timeStr = obj.ts || '';
+        if (obj.ts && firstTs !== null) {
+          const frameTsNum = parseFloat(obj.ts);
+          if (!isNaN(frameTsNum)) {
+            const relativeTime = frameTsNum - firstTs;
+            timeStr = relativeTime >= 0 ? `+${relativeTime.toFixed(3)}` : relativeTime.toFixed(3);
+          }
+        }
+
+        el.innerHTML = `
+          <div class="meta">
+            <div class="meta-fields">
+              <span class="pill pill-dir ${dirPillClass}">${dirLabel}</span>
+              <span class="pill pill-type type-pill ${typeClass}" title="${typeTooltip}"${typeStyle}>${typeDisplay}</span>
+              ${crcPill}
+              <span class="pill pill-len pill-hoverable" data-byte-start="3" data-byte-end="4"><span class="pill-label">len</span>: <span class="pill-value">${lenStr}</span></span>
+              <span class="pill pill-txrx pill-hoverable" data-byte-start="5" data-byte-end="5"><span class="pill-label">tx</span>: <span class="pill-value">${obj.tx || '?'}</span></span>
+              <span class="pill pill-txrx pill-hoverable" data-byte-start="6" data-byte-end="6"><span class="pill-label">rx</span>: <span class="pill-value">${obj.rx || '?'}</span></span>
+              ${tokenPill}
+              ${streamIdPill}
+              <span class="pill pill-ts pill-muted">${timeStr}</span>
+            </div>
+            <span class="actions">
+              <button class="iconbtn" data-act="copy-json">JSON</button>
+              <button class="iconbtn" data-act="copy-hex">Hex</button>
+              <button class="iconbtn" data-act="show-fdo">FDO</button>
+            </span>
+          </div>
+          ${obj.fullHex ? `<div class="hex hex-collapsed${showHexGlobally ? '' : ' hex-hidden'}" data-full-hex="${obj.fullHex}"${showHexGlobally ? '' : ' style="display:none"'}>${formatHexPreview(obj.fullHex)}</div>` : ''}
+        `;
+
+        // Store FDO payload range
+        const payloadLen = (hasLenValue && lenNumber > 3) ? Math.max(0, lenNumber - 3) : 0;
+        const fdoStart = 12;
+        const fdoEnd = payloadLen > 4 ? fdoStart + (payloadLen - 4) - 1 : fdoStart - 1;
+        if (fdoEnd >= fdoStart) {
+          el.dataset.fdoStart = fdoStart;
+          el.dataset.fdoEnd = fdoEnd;
+        }
+
+        return el;
+      }
+
+      // Add frame to virtual scroll system
+      function addFrameToVirtualScroll(obj, raw, isPcap) {
+        const frames = isPcap ? framesPcap : framesProxy;
+        const frameIndex = frames.length;
+        frames.push({ obj, raw, index: frameIndex });
+
+        // Update first frame timestamp for relative time display
+        if (obj.ts) {
+          const tsNum = parseFloat(obj.ts);
+          if (!isNaN(tsNum)) {
+            if (isPcap && firstPcapFrameTs === null) {
+              firstPcapFrameTs = tsNum;
+            } else if (!isPcap && firstProxyFrameTs === null) {
+              firstProxyFrameTs = tsNum;
+            }
+          }
+        }
+
+        // Trigger re-render of visible frames
+        renderVisibleFrames(isPcap);
+      }
+
+      // Clear virtual scroll timeline
+      function clearVirtualTimeline(isPcap) {
+        const state = getVirtualState(isPcap);
+        const frames = isPcap ? framesPcap : framesProxy;
+
+        frames.length = 0;
+        state.renderedRange = { start: 0, end: 0 };
+
+        if (state.content) {
+          state.content.innerHTML = '';
+        }
+        if (state.spacerTop) {
+          state.spacerTop.style.height = '0';
+        }
+        if (state.spacerBottom) {
+          state.spacerBottom.style.height = '0';
+        }
+      }
 
       // Get the correct decompile stream button based on active tab
       function getDecompileStreamButton() {
@@ -1698,8 +2043,8 @@
             if (!line.trim()) continue;
             try {
               const obj = JSON.parse(line);
-              activeFrames().push({ obj, raw: line });
-              renderFrame(obj, line, document.getElementById('timeline-pcap'));
+              // Use virtual scroll for PCAP frames
+              addFrameToVirtualScroll(obj, line, true);
               lineCount++;
             } catch (e) {
               console.warn('Failed to parse JSON line:', line, e);
@@ -1934,6 +2279,8 @@
       }
 
       // Format hex with individual byte spans for hover highlighting
+      // ===== PHASE 2: LAZY HEX RENDERING =====
+      // Full hex with individual byte spans (for highlighting) - only used when expanded
       function formatHexWithSpans(hex) {
         if (!hex) return '';
         const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
@@ -1956,6 +2303,55 @@
           out += hexPart + ' |' + ascii + '|\n';
         }
         return out.trimEnd();
+      }
+
+      // Collapsed hex preview - plain text, no spans (much faster)
+      // Shows first 4 lines (64 bytes) with count of remaining bytes
+      function formatHexPreview(hex) {
+        if (!hex) return '';
+        const bytes = hex.replace(/\s+/g,'').match(/.{1,2}/g) || [];
+        const maxLines = 4;
+        const maxBytes = maxLines * 16;
+        let out = '';
+
+        for (let i = 0; i < Math.min(bytes.length, maxBytes); i += 16) {
+          const line = bytes.slice(i, i + 16);
+          let hexPart = line.join(' ');
+          if (line.length > 8) {
+            hexPart = line.slice(0, 8).join(' ') + '  ' + line.slice(8).join(' ');
+          }
+          let ascii = line.map(b => {
+            const n = parseInt(b, 16);
+            return (n >= 32 && n < 127) ? String.fromCharCode(n) : '.';
+          }).join('');
+
+          const missing = 16 - line.length;
+          const padSpaces = missing * 3 + (line.length <= 8 ? 1 : 0);
+          hexPart += ' '.repeat(padSpaces);
+          out += hexPart + ' |' + ascii + '|\n';
+        }
+
+        if (bytes.length > maxBytes) {
+          out += `... ${bytes.length - maxBytes} more bytes (hover to expand)\n`;
+        }
+
+        return out.trimEnd();
+      }
+
+      // Expand hex display to full span-based view (for byte highlighting)
+      function ensureHexExpanded(frameEl) {
+        if (!frameEl || frameEl.dataset.hexExpanded === 'true') return;
+
+        const hexEl = frameEl.querySelector('.hex');
+        if (!hexEl) return;
+
+        const fullHex = hexEl.dataset.fullHex;
+        if (!fullHex) return;
+
+        // Expand to full hex with spans
+        hexEl.innerHTML = formatHexWithSpans(fullHex);
+        hexEl.classList.remove('hex-collapsed');
+        frameEl.dataset.hexExpanded = 'true';
       }
 
       // Highlight specific byte range in hex view
@@ -1981,240 +2377,22 @@
         });
       }
 
-      function renderFrame(obj, raw, container) {
-        // Update session metadata - count all frames in proxy timeline
-        if (container.id === 'timeline-proxy') {
-          totalFramesReceived++;
-
-          // Track sequence numbers for gap detection
-          if (obj.seq !== undefined) {
-            if (lastSequenceNumber !== null) {
-              const expectedSeq = lastSequenceNumber + 1;
-              if (obj.seq > expectedSeq) {
-                sequenceGaps += (obj.seq - expectedSeq);
-              }
-            }
-            lastSequenceNumber = obj.seq;
-          }
-
-          updateSessionMetadata();
-        }
-
-        const el = document.createElement('div');
-        el.className = 'frame ' + (obj.dir === 'S->C' ? 's2c' : 'c2s');
-
-        // Add connection ID data attribute for filtering
-        if (obj.connectionId) {
-          el.dataset.connectionId = obj.connectionId;
-        }
-
-        // Direction styling - subtle left border hint
-        const dirPillClass = obj.dir === 'S->C' ? 'dir-s2c' : 'dir-c2s';
-        const dirLabel = obj.dir === 'S->C' ? 'S→C' : 'C→S';
-
-        // CRC handling - only show indicator on error
-        const hasCrcField = Object.prototype.hasOwnProperty.call(obj, 'crcOk');
-        const crcOk = hasCrcField ? !!obj.crcOk : true;
-        const crcPill = (!hasCrcField || crcOk) ? '' : `<span class="pill pill-crc">!</span>`;
-
-        // P3 packet type handling
-        const baseTypeName = obj.typeName || obj.type || '?';
-        const typeClass = obj.typeName ? `type-${obj.typeName.toLowerCase()}` : 'type-unknown';
-        // Determine if DATA packet: either typeName === 'DATA' or type byte is 0x20/0xA0
-        const typeHex = (obj.type || '').toLowerCase();
-        const isDataPacket = obj.typeName === 'DATA' || typeHex === '0x20' || typeHex === '0xa0' || typeHex === '20' || typeHex === 'a0';
-        const isNakPacket = obj.typeName === 'NAK' || typeHex === '0x25' || typeHex === '0xa5' || typeHex === '25' || typeHex === 'a5';
-
-        let typeDisplay = baseTypeName;
-        if (isNakPacket && obj.nakReason) {
-          const shortReason = obj.nakReason
-            .replace('_ERROR', '')
-            .replace('_', ' ')
-            .toLowerCase()
-            .replace(/\b\w/g, c => c.toUpperCase());
-          typeDisplay = `NAK (${shortReason})`;
-        }
-
-        // Type hover range: highlight payload bytes for DATA, type byte otherwise
-        let typeHoverStart = 7;
-        let typeHoverEnd = 7;
-        const lenNumber = Number(obj.len);
-        const hasLenValue = Number.isFinite(lenNumber);
-
-        // Token pill - only for DATA packets with token
-        // Byte range: offset 8-9 (after 8-byte header)
-        let tokenPill = '';
-        if (isDataPacket && obj.token) {
-          tokenPill = `<span class="pill pill-token pill-hoverable" data-byte-start="8" data-byte-end="9"><span class="pill-label">token</span>: <span class="pill-value">${obj.token}</span></span>`;
-        }
-
-        // Stream ID pill - only for DATA packets with streamId
-        // Byte range: offset 10-11 (after token)
-        let streamIdPill = '';
-        const streamIdHex = isDataPacket ? extractStreamIdFromHex(obj, 'hex') : null;
-        const streamIdDecimal = isDataPacket ? extractStreamIdFromHex(obj, 'dec') : null;
-        if (streamIdHex !== null && streamIdDecimal !== null) {
-          streamIdPill = `<span class="pill pill-sid pill-hoverable" data-stream-id="${streamIdDecimal}" data-byte-start="10" data-byte-end="11" role="button" tabindex="0"><span class="pill-label">sid</span>: <span class="pill-value">${streamIdDecimal}</span></span>`;
-        }
-
-        // Relative timestamp from frame's actual timestamp
-        // Use the earliest timestamp seen for current dataset
-        const parsedTs = parseTimestampValue(obj.ts);
-        const frameTs = parsedTs !== null ? parsedTs : Date.now() / 1000;
-        const isProxy = container.id === 'timeline-proxy';
-        if (isProxy) {
-          if (firstProxyFrameTs === null || frameTs < firstProxyFrameTs) firstProxyFrameTs = frameTs;
-        } else {
-          if (firstPcapFrameTs === null || frameTs < firstPcapFrameTs) firstPcapFrameTs = frameTs;
-        }
-        const firstTs = isProxy ? firstProxyFrameTs : firstPcapFrameTs;
-        const relSecs = firstTs !== null ? Math.max(0, frameTs - firstTs) : 0;
-        const formattedTs = formatTimestamp(obj.ts);
-        // Format: show 1 decimal for < 100s, whole seconds otherwise
-        const timeDisplay = relSecs < 100 ? `+${relSecs.toFixed(1)}s` : `+${Math.round(relSecs)}s`;
-
-        const dirPillHtml = `<span class="pill pill-dir ${dirPillClass}"><span class="pill-label">dir</span>: <span class="pill-value">${dirLabel}</span></span>`;
-        const typePillHtml = `<span class="pill pill-type type-pill ${typeClass} pill-hoverable" data-byte-start="${typeHoverStart}" data-byte-end="${typeHoverEnd}"><span class="pill-label">type</span>: <span class="pill-value">${typeDisplay}</span></span>`;
-        const lenDisplay = hasLenValue ? lenNumber.toString() : '—';
-        const lenPillHtml = `<span class="pill pill-len pill-hoverable" data-byte-start="3" data-byte-end="4"><span class="pill-label">len</span>: <span class="pill-value">${lenDisplay}</span></span>`;
-        const txValue = (obj.tx !== undefined && obj.tx !== null) ? obj.tx : '—';
-        const rxValue = (obj.rx !== undefined && obj.rx !== null) ? obj.rx : '—';
-        const txPillHtml = `<span class="pill pill-seq pill-hoverable" data-byte-start="5" data-byte-end="5"><span class="pill-label">tx</span>: <span class="pill-value">${txValue}</span></span>`;
-        const rxPillHtml = `<span class="pill pill-seq pill-hoverable" data-byte-start="6" data-byte-end="6"><span class="pill-label">rx</span>: <span class="pill-value">${rxValue}</span></span>`;
-        const timePillHtml = `<span class="pill pill-time"><span class="pill-label">dt</span>: <span class="pill-value">${timeDisplay}</span></span>`;
-        const tokenPillHtml = tokenPill || `<span class="pill pill-token pill-muted"><span class="pill-label">token</span>: <span class="pill-value">—</span></span>`;
-        const streamIdPillHtml = streamIdPill || `<span class="pill pill-sid pill-muted"><span class="pill-label">sid</span>: <span class="pill-value">—</span></span>`;
-
-        el.innerHTML = `
-          <div class="meta">
-            <div class="meta-fields">
-              ${dirPillHtml}
-              ${typePillHtml}
-              ${crcPill}
-              ${lenPillHtml}
-              ${txPillHtml}
-              ${rxPillHtml}
-              ${tokenPillHtml}
-              ${streamIdPillHtml}
-              ${timePillHtml}
-            </div>
-            <span class="actions">
-              <button class="iconbtn" data-act="copy-json">JSON</button>
-              <button class="iconbtn" data-act="copy-hex">Hex</button>
-              <button class="iconbtn" data-act="show-fdo">FDO</button>
-            </span>
-          </div>
-          ${obj.fullHex ? `<div class="hex" data-full-hex="${obj.fullHex}"></div>` : ''}
-        `;
-
-        // Render hex with individual byte spans for highlighting
-        if (obj.fullHex) {
-          const hexEl = el.querySelector('.hex');
-          if (hexEl) {
-            hexEl.innerHTML = formatHexWithSpans(obj.fullHex);
-          }
-        }
-
-        // Add hover handlers for byte highlighting
-        el.querySelectorAll('.pill-hoverable').forEach(pill => {
-          const start = parseInt(pill.dataset.byteStart, 10);
-          const end = parseInt(pill.dataset.byteEnd, 10);
-          if (!isNaN(start) && !isNaN(end)) {
-            pill.addEventListener('mouseenter', () => highlightBytes(el, start, end));
-            pill.addEventListener('mouseleave', () => clearByteHighlights(el));
-          }
-        });
-        // Highlight payload when hovering FDO button
-        const fdoBtn = el.querySelector('[data-act="show-fdo"]');
-        if (fdoBtn) {
-          const payloadLen = (hasLenValue && lenNumber > 3) ? Math.max(0, lenNumber - 3) : 0;
-          const fdoStart = 12; // skip token (2) + streamId (2) after header
-          const fdoEnd = payloadLen > 4 ? fdoStart + (payloadLen - 4) - 1 : fdoStart - 1;
-          if (fdoEnd >= fdoStart) {
-            fdoBtn.addEventListener('mouseenter', () => highlightBytes(el, fdoStart, fdoEnd));
-            fdoBtn.addEventListener('mouseleave', () => clearByteHighlights(el));
-          }
-        }
-        el.addEventListener('click', async (e) => {
-          const target = e.target.closest('[data-act]');
-          if (!target) return;
-          const act = target.getAttribute('data-act');
-          if (act === 'copy-json') {
-            const pretty = JSON.stringify(obj, null, 2);
-            await navigator.clipboard.writeText(pretty);
-            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'JSON', 800); }
-          } else if (act === 'copy-hex') {
-            await navigator.clipboard.writeText(obj.fullHex || '');
-            if (target.tagName === 'BUTTON') { target.textContent = 'Copied'; setTimeout(() => target.textContent = 'Hex', 800); }
-          } else if (act === 'show-fdo') {
-            // If already decompiled, show it immediately
-            if (obj.fdoSource) {
-              showFdoModal(obj.fdoSource);
-            } else {
-              // Otherwise, decompile on demand
-              if (!obj.fullHex) {
-                toast('No frame data available for decompilation', 'err');
-                return;
-              }
-
-              // Show loading state
-              target.disabled = true;
-              target.textContent = 'Decompiling...';
-
-              fetch('/api/decompile-frame', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullHex: obj.fullHex })
-              })
-              .then(res => res.json())
-              .then(result => {
-                target.disabled = false;
-                target.textContent = 'FDO';
-
-                if (result.success && result.fdoSource) {
-                  // Unescape newlines and other escape sequences from JSON
-                  const unescapedSource = result.fdoSource
-                    .replace(/\\n/g, '\n')
-                    .replace(/\\r/g, '\r')
-                    .replace(/\\t/g, '\t');
-
-                  // Cache the unescaped result in the frame object
-                  obj.fdoSource = unescapedSource;
-                  showFdoModal(unescapedSource);
-                } else {
-                  toast(result.error || 'Decompilation failed', 'err');
-                }
-              })
-              .catch(err => {
-                target.disabled = false;
-                target.textContent = 'FDO';
-                toast('Failed to decompile: ' + err.message, 'err');
-              });
-            }
-          }
-        });
-        const targetContainer = container || (isProxyActive() ? document.getElementById('timeline-proxy') : document.getElementById('timeline-pcap'));
-        targetContainer.prepend(el);
-      }
-
+      // Note: Old renderFrame function removed - all rendering now uses virtual scrolling
+      // via createFrameElement() + renderVisibleFrames()
 
       function rerenderAll() {
-        document.getElementById('timeline-pcap').innerHTML = '';
-        document.getElementById('timeline-proxy').innerHTML = '';
-        const renderList = (arr, containerId) => {
-          const container = document.getElementById(containerId);
-          for (const f of arr) {
-            renderFrame(f.obj, f.raw, container);
-          }
-        };
-        renderList(framesPcap, 'timeline-pcap');
-        renderList(framesProxy, 'timeline-proxy');
+        // Re-initialize virtual containers and re-render visible frames
+        initVirtualContainer('timeline-pcap', true);
+        initVirtualContainer('timeline-proxy', false);
+        renderVisibleFrames(true, true);
+        renderVisibleFrames(false, true);
       }
 
 
       clearBtn.addEventListener('click', () => {
-        activeFrames().length = 0;
-        rerenderAll();
+        // Clear both virtual timelines
+        clearVirtualTimeline(true);  // PCAP
+        clearVirtualTimeline(false); // Proxy
         document.getElementById('file-type-indicator').textContent = '';
         // Reset dropzone title
         dz.querySelector('.dz-title').textContent = 'Drop a PCAP or JSONL file here';
@@ -2313,9 +2491,8 @@
 
             // Handle frame data
             console.log('Received live frame:', ev.data);
-            const frameData = { obj, raw: ev.data, isLive: true };
-            activeFrames().push(frameData);
-            renderFrame(obj, ev.data, document.getElementById('timeline-proxy'));
+            // Use virtual scroll for live proxy frames
+            addFrameToVirtualScroll(obj, ev.data, false);
 
             // Update connection frame count if this frame has a connectionId
             if (obj.connectionId) {
@@ -2533,6 +2710,228 @@
         // Remove hover preview class from all pills
         document.querySelectorAll('.stream-hover-preview')
           .forEach(el => el.classList.remove('stream-hover-preview'));
+      }
+
+      // ===== PHASE 1: EVENT DELEGATION =====
+      // Centralized event handlers for all frame interactions
+      // Replaces per-frame event listeners for massive performance improvement
+      // (120,000+ listeners -> 3 listeners for 10K frames)
+
+      function initFrameEventDelegation() {
+        // Click handler for frame action buttons (JSON, Hex, FDO)
+        document.addEventListener('click', handleFrameActionClick);
+
+        // Hover handlers for byte highlighting
+        document.addEventListener('mouseover', handleFrameHover);
+        document.addEventListener('mouseout', handleFrameHoverEnd);
+      }
+
+      // Global hex toggle handler
+      function initHexToggle() {
+        const proxyBtn = document.getElementById('toggle-hex-proxy');
+        const pcapBtn = document.getElementById('toggle-hex-pcap');
+
+        function toggleHex() {
+          showHexGlobally = !showHexGlobally;
+          const label = showHexGlobally ? 'Hide Hex' : 'Show Hex';
+          if (proxyBtn) proxyBtn.textContent = label;
+          if (pcapBtn) pcapBtn.textContent = label;
+
+          // Update all visible frames - global toggle overrides individual states
+          document.querySelectorAll('.frame').forEach(frameEl => {
+            // Clear individual state when global toggle changes
+            delete frameEl.dataset.hexShownIndividually;
+            const hexEl = frameEl.querySelector('.hex');
+            if (!hexEl) return;
+            if (showHexGlobally) {
+              hexEl.style.display = 'block';
+              hexEl.classList.remove('hex-hidden');
+            } else {
+              hexEl.style.display = 'none';
+              hexEl.classList.add('hex-hidden');
+            }
+          });
+        }
+
+        if (proxyBtn) proxyBtn.addEventListener('click', toggleHex);
+        if (pcapBtn) pcapBtn.addEventListener('click', toggleHex);
+      }
+
+      // Show hex for individual frame (when global is OFF)
+      function showFrameHex(frameEl) {
+        const hexEl = frameEl.querySelector('.hex');
+        if (!hexEl) return;
+
+        frameEl.dataset.hexShownIndividually = 'true';
+        hexEl.style.display = 'block';
+        hexEl.classList.remove('hex-hidden');
+        ensureHexExpanded(frameEl);
+      }
+
+      // Hide hex for individual frame
+      function hideFrameHex(frameEl) {
+        const hexEl = frameEl.querySelector('.hex');
+        if (!hexEl) return;
+
+        delete frameEl.dataset.hexShownIndividually;
+        if (!showHexGlobally) {
+          hexEl.style.display = 'none';
+          hexEl.classList.add('hex-hidden');
+        }
+      }
+
+      async function handleFrameActionClick(e) {
+        // Handle click on collapsed hex to expand it
+        const hexEl = e.target.closest('.hex-collapsed');
+        if (hexEl) {
+          const frameEl = hexEl.closest('.frame');
+          if (frameEl) {
+            ensureHexExpanded(frameEl);
+          }
+          return;
+        }
+
+        // Handle click on frame meta area to toggle hex (when global is OFF)
+        const metaEl = e.target.closest('.meta');
+        if (metaEl && !e.target.closest('[data-act]') && !e.target.closest('.pill-sid')) {
+          const frameEl = metaEl.closest('.frame');
+          if (frameEl && !showHexGlobally) {
+            const hex = frameEl.querySelector('.hex');
+            if (hex) {
+              // Toggle individual hex visibility
+              if (frameEl.dataset.hexShownIndividually) {
+                hideFrameHex(frameEl);
+              } else {
+                showFrameHex(frameEl);
+              }
+              return;
+            }
+          }
+        }
+
+        const target = e.target.closest('[data-act]');
+        if (!target) return;
+
+        const frameEl = target.closest('.frame');
+        if (!frameEl) return;
+
+        const frameIndex = parseInt(frameEl.dataset.frameIndex, 10);
+        const isPcap = isFrameInPcapTab(frameEl);
+        const frameData = getFrameByIndex(frameIndex, isPcap);
+        if (!frameData) return;
+
+        const obj = frameData.obj;
+        const act = target.getAttribute('data-act');
+
+        if (act === 'copy-json') {
+          const pretty = JSON.stringify(obj, null, 2);
+          await navigator.clipboard.writeText(pretty);
+          if (target.tagName === 'BUTTON') {
+            target.textContent = 'Copied';
+            setTimeout(() => target.textContent = 'JSON', 800);
+          }
+        } else if (act === 'copy-hex') {
+          await navigator.clipboard.writeText(obj.fullHex || '');
+          if (target.tagName === 'BUTTON') {
+            target.textContent = 'Copied';
+            setTimeout(() => target.textContent = 'Hex', 800);
+          }
+        } else if (act === 'show-fdo') {
+          // If already decompiled, show it immediately
+          if (obj.fdoSource) {
+            showFdoModal(obj.fdoSource);
+          } else {
+            // Otherwise, decompile on demand
+            if (!obj.fullHex) {
+              toast('No frame data available for decompilation', 'err');
+              return;
+            }
+
+            // Show loading state
+            target.disabled = true;
+            target.textContent = 'Decompiling...';
+
+            try {
+              const res = await fetch('/api/decompile-frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullHex: obj.fullHex })
+              });
+              const result = await res.json();
+
+              target.disabled = false;
+              target.textContent = 'FDO';
+
+              if (result.success && result.fdoSource) {
+                // Unescape newlines and other escape sequences from JSON
+                const unescapedSource = result.fdoSource
+                  .replace(/\\n/g, '\n')
+                  .replace(/\\r/g, '\r')
+                  .replace(/\\t/g, '\t');
+
+                // Cache the unescaped result in the frame object
+                obj.fdoSource = unescapedSource;
+                showFdoModal(unescapedSource);
+              } else {
+                toast(result.error || 'Decompilation failed', 'err');
+              }
+            } catch (err) {
+              target.disabled = false;
+              target.textContent = 'FDO';
+              toast('Failed to decompile: ' + err.message, 'err');
+            }
+          }
+        }
+      }
+
+      function handleFrameHover(e) {
+        // Handle hoverable pills for byte highlighting
+        const pill = e.target.closest('.pill-hoverable');
+        if (pill) {
+          const frameEl = pill.closest('.frame');
+          if (!frameEl) return;
+
+          const start = parseInt(pill.dataset.byteStart, 10);
+          const end = parseInt(pill.dataset.byteEnd, 10);
+          if (!isNaN(start) && !isNaN(end)) {
+            // Expand hex if collapsed before highlighting (Phase 2)
+            ensureHexExpanded(frameEl);
+            highlightBytes(frameEl, start, end);
+          }
+          return;
+        }
+
+        // Handle FDO button hover for payload highlighting
+        const fdoBtn = e.target.closest('[data-act="show-fdo"]');
+        if (fdoBtn) {
+          const frameEl = fdoBtn.closest('.frame');
+          if (!frameEl) return;
+
+          const fdoStart = parseInt(frameEl.dataset.fdoStart, 10);
+          const fdoEnd = parseInt(frameEl.dataset.fdoEnd, 10);
+          if (!isNaN(fdoStart) && !isNaN(fdoEnd) && fdoEnd >= fdoStart) {
+            // Expand hex if collapsed before highlighting (Phase 2)
+            ensureHexExpanded(frameEl);
+            highlightBytes(frameEl, fdoStart, fdoEnd);
+          }
+        }
+      }
+
+      function handleFrameHoverEnd(e) {
+        // Clear byte highlights when leaving hoverable pills
+        const pill = e.target.closest('.pill-hoverable');
+        if (pill) {
+          const frameEl = pill.closest('.frame');
+          if (frameEl) clearByteHighlights(frameEl);
+          return;
+        }
+
+        // Clear byte highlights when leaving FDO button
+        const fdoBtn = e.target.closest('[data-act="show-fdo"]');
+        if (fdoBtn) {
+          const frameEl = fdoBtn.closest('.frame');
+          if (frameEl) clearByteHighlights(frameEl);
+        }
       }
 
       function initStreamIdFiltering() {
@@ -2851,8 +3250,8 @@
             if (!line) continue;
             try {
               const obj = JSON.parse(line);
-              activeFrames().push({ obj, raw: line });
-              renderFrame(obj, line, document.getElementById('timeline-pcap'));
+              // Use virtual scroll for PCAP upload frames
+              addFrameToVirtualScroll(obj, line, true);
               lineCount++;
             } catch (e) {
               // ignore malformed lines
@@ -2862,8 +3261,8 @@
         if (buffer) {
           try {
             const obj = JSON.parse(buffer);
-            activeFrames().push({ obj, raw: buffer });
-            renderFrame(obj, buffer, document.getElementById('timeline-pcap'));
+            // Use virtual scroll for final buffer frame
+            addFrameToVirtualScroll(obj, buffer, true);
             lineCount++;
           } catch (_) {
             // ignore leftover text
@@ -2948,6 +3347,16 @@
 
       // Handle initial hash fragment for tab navigation
       handleInitialHash();
+
+      // Initialize frame event delegation (Phase 1 performance optimization)
+      initFrameEventDelegation();
+
+      // Initialize hex toggle buttons
+      initHexToggle();
+
+      // Initialize virtual scroll containers (Phase 3 performance optimization)
+      initVirtualContainer('timeline-pcap', true);
+      initVirtualContainer('timeline-proxy', false);
 
       // Initialize streamId filtering feature
       initStreamIdFiltering();
